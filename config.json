@@ -1,0 +1,16 @@
+{
+  "user": {
+    "email": "ken.kobayashi@precena.com",
+    "profile": "ken.kobayashi@precena.com"
+  },
+  "app": {
+    "window": {
+      "width": 500,
+      "height": 500,
+      "alwaysOnTop": true
+    },
+    "freee": {
+      "url": "https://p.secure.freee.co.jp/#"
+    }
+  }
+}
