@@ -15,6 +15,15 @@ interface AppConfig {
       url: string;
     };
   };
+  api?: {
+    clientId: string;
+    clientSecret: string;
+    redirectUri: string;
+    companyId?: number;
+    employeeId?: number;
+    accessToken?: string;
+    refreshToken?: string;
+  };
 }
 
 declare global {
@@ -27,6 +36,13 @@ declare global {
       setAuthCookies: (cookies: any[]) => Promise<boolean>;
       reloadWebview: () => Promise<void>;
       onReloadWebview: (callback: () => void) => void;
+      freeeApi: {
+        init: () => Promise<boolean>;
+        authorize: () => Promise<string>;
+        getEmployeeInfo: () => Promise<any>;
+        timeClock: (type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => Promise<any>;
+        getTodayWorkRecord: () => Promise<any>;
+      };
     };
   }
 }

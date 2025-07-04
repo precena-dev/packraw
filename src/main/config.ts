@@ -16,6 +16,15 @@ export interface AppConfig {
       url: string;
     };
   };
+  api?: {
+    clientId: string;
+    clientSecret: string;
+    redirectUri: string;
+    companyId?: number;
+    employeeId?: number;
+    accessToken?: string;
+    refreshToken?: string;
+  };
 }
 
 const defaultConfig: AppConfig = {

@@ -10,4 +10,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onReloadWebview: (callback: () => void) => {
     ipcRenderer.on('reload-webview', callback);
   },
+  
+  // freee API
+  freeeApi: {
+    init: () => ipcRenderer.invoke('freee-api-init'),
+    authorize: () => ipcRenderer.invoke('freee-api-authorize'),
+    getEmployeeInfo: () => ipcRenderer.invoke('freee-api-get-employee-info'),
+    timeClock: (type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => 
+      ipcRenderer.invoke('freee-api-time-clock', type),
+    getTodayWorkRecord: () => ipcRenderer.invoke('freee-api-get-today-work-record'),
+  }
 });

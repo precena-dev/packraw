@@ -1,18 +1,27 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { WebView, WebViewHandle } from './components/WebView';
 import { ControlPanel } from './components/ControlPanel';
 import { WorkingTimeDisplay } from './components/WorkingTimeDisplay';
+import { ApiModePanel } from './components/ApiModePanel';
 import { useTimeTracker } from './hooks/useTimeTracker';
 
 function App() {
   const webviewRef = useRef<Electron.WebviewTag | null>(null);
   const webviewHandleRef = useRef<WebViewHandle>(null);
   const { workingTime, isWorking, startWork, endWork } = useTimeTracker();
+  const [useApiMode, setUseApiMode] = useState(false);
 
   useEffect(() => {
     // WebViewのリロードイベントをリッスン
     window.electronAPI.onReloadWebview(() => {
       webviewHandleRef.current?.reload();
+    });
+    
+    // APIモードの設定を確認
+    window.electronAPI.getConfig().then(config => {
+      if (config.api) {
+        setUseApiMode(true);
+      }
     });
   }, []);
 
@@ -43,6 +52,10 @@ function App() {
         console.error('打刻エラー:', error);
       });
   };
+
+  if (useApiMode) {
+    return <ApiModePanel />;
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">

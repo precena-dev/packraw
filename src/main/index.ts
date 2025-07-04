@@ -2,10 +2,12 @@ import { app, BrowserWindow, ipcMain, shell, session } from 'electron';
 import path from 'path';
 import { AuthManager } from './auth';
 import { ConfigManager } from './config';
+import { FreeeApiService } from './freeeApi';
 
 let mainWindow: BrowserWindow | null = null;
 const authManager = new AuthManager();
 const configManager = new ConfigManager();
+let freeeApiService: FreeeApiService | null = null;
 
 function createWindow() {
   const windowConfig = configManager.getWindowConfig();
@@ -119,4 +121,69 @@ ipcMain.handle('reload-webview', () => {
   if (mainWindow) {
     mainWindow.webContents.send('reload-webview');
   }
+});
+
+// freee API関連のハンドラー
+ipcMain.handle('freee-api-init', () => {
+  const config = configManager.getConfig();
+  if (config.api) {
+    freeeApiService = new FreeeApiService({
+      clientId: config.api.clientId,
+      clientSecret: config.api.clientSecret,
+      redirectUri: config.api.redirectUri,
+      accessToken: config.api.accessToken,
+      refreshToken: config.api.refreshToken,
+      companyId: config.api.companyId,
+      employeeId: config.api.employeeId,
+    });
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('freee-api-authorize', async () => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  const result = await freeeApiService.authorize();
+  
+  // 認証成功後、トークンを設定ファイルに保存
+  const apiConfig = freeeApiService.getConfig();
+  configManager.updateConfig({
+    ...configManager.getConfig(),
+    api: {
+      ...configManager.getConfig().api!,
+      accessToken: apiConfig.accessToken,
+      refreshToken: apiConfig.refreshToken,
+    }
+  });
+  
+  return result;
+});
+
+ipcMain.handle('freee-api-get-employee-info', async () => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  const info = await freeeApiService.getEmployeeInfo();
+  
+  // 従業員IDを設定ファイルに保存
+  if (info.employee?.id) {
+    configManager.updateConfig({
+      ...configManager.getConfig(),
+      api: {
+        ...configManager.getConfig().api!,
+        employeeId: info.employee.id,
+      }
+    });
+    freeeApiService.updateConfig({ employeeId: info.employee.id });
+  }
+  
+  return info;
+});
+
+ipcMain.handle('freee-api-time-clock', async (_event, type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  return await freeeApiService.timeClock(type);
+});
+
+ipcMain.handle('freee-api-get-today-work-record', async () => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  return await freeeApiService.getTodayWorkRecord();
 });
