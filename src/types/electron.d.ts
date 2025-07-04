@@ -23,6 +23,7 @@ interface AppConfig {
     employeeId?: number;
     accessToken?: string;
     refreshToken?: string;
+    refreshTokenExpiresAt?: string;
   };
 }
 

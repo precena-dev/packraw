@@ -1,11 +1,9 @@
 import { app, BrowserWindow, ipcMain, shell, session } from 'electron';
 import path from 'path';
-import { AuthManager } from './auth';
 import { ConfigManager } from './config';
 import { FreeeApiService } from './freeeApi';
 
 let mainWindow: BrowserWindow | null = null;
-const authManager = new AuthManager();
 const configManager = new ConfigManager();
 let freeeApiService: FreeeApiService | null = null;
 
@@ -83,7 +81,7 @@ ipcMain.handle('get-config', () => {
 });
 
 // 設定情報を更新
-ipcMain.handle('update-config', (event, newConfig) => {
+ipcMain.handle('update-config', (_event, newConfig) => {
   configManager.updateConfig(newConfig);
   return configManager.getConfig();
 });
@@ -96,7 +94,7 @@ ipcMain.handle('open-auth', async () => {
 });
 
 // 認証成功後、Cookie情報を設定
-ipcMain.handle('set-auth-cookies', async (event, cookies: any[]) => {
+ipcMain.handle('set-auth-cookies', async (_event, cookies: any[]) => {
   const partitionName = configManager.getPartitionName();
   const ses = session.fromPartition(partitionName);
   
@@ -153,6 +151,7 @@ ipcMain.handle('freee-api-authorize', async () => {
       ...configManager.getConfig().api!,
       accessToken: apiConfig.accessToken,
       refreshToken: apiConfig.refreshToken,
+      refreshTokenExpiresAt: apiConfig.refreshTokenExpiresAt,
     }
   });
   

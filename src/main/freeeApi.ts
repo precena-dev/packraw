@@ -7,6 +7,7 @@ export interface FreeeConfig {
   redirectUri: string;
   accessToken?: string;
   refreshToken?: string;
+  refreshTokenExpiresAt?: string; 
   companyId?: number;
   employeeId?: number;
 }
@@ -51,13 +52,39 @@ export class FreeeApiService {
       (response) => response,
       async (error) => {
         if (error.response?.status === 401 && this.config.refreshToken) {
-          await this.refreshAccessToken();
-          error.config.headers.Authorization = `Bearer ${this.config.accessToken}`;
-          return this.axiosInstance(error.config);
+          // リフレッシュトークンの有効期限をチェック
+          if (this.isRefreshTokenExpired()) {
+            // リフレッシュトークンが期限切れの場合は再認証が必要
+            throw new Error('リフレッシュトークンの有効期限が切れています。再度ログインしてください。');
+          }
+          
+          try {
+            await this.refreshAccessToken();
+            error.config.headers.Authorization = `Bearer ${this.config.accessToken}`;
+            return this.axiosInstance(error.config);
+          } catch (refreshError) {
+            // リフレッシュトークンも無効な場合
+            throw new Error('認証の更新に失敗しました。再度ログインしてください。');
+          }
         }
         return Promise.reject(error);
       }
     );
+  }
+
+  private isRefreshTokenExpired(): boolean {
+    if (!this.config.refreshTokenExpiresAt) {
+      return false; // 有効期限が設定されていない場合は期限切れとみなさない
+    }
+    
+    const expiresAt = new Date(this.config.refreshTokenExpiresAt);
+    const now = new Date();
+    
+    // 有効期限の3日前から警告を出すために、余裕を持たせる
+    const warningThreshold = new Date(expiresAt);
+    warningThreshold.setDate(warningThreshold.getDate() - 3);
+    
+    return now >= warningThreshold;
   }
 
   getAuthorizationUrl(): string {
@@ -125,6 +152,11 @@ export class FreeeApiService {
 
     this.config.accessToken = response.data.access_token;
     this.config.refreshToken = response.data.refresh_token;
+    
+    // リフレッシュトークンの有効期限を設定（90日後）
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 90);
+    this.config.refreshTokenExpiresAt = expiresAt.toISOString();
   }
 
   private async refreshAccessToken(): Promise<void> {
@@ -137,6 +169,11 @@ export class FreeeApiService {
 
     this.config.accessToken = response.data.access_token;
     this.config.refreshToken = response.data.refresh_token;
+    
+    // 新しいリフレッシュトークンの有効期限を設定（90日後）
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 90);
+    this.config.refreshTokenExpiresAt = expiresAt.toISOString();
   }
 
   async getEmployeeInfo(): Promise<any> {
@@ -194,5 +231,19 @@ export class FreeeApiService {
 
   updateConfig(config: Partial<FreeeConfig>): void {
     Object.assign(this.config, config);
+  }
+  
+  // リフレッシュトークンの残り有効日数を取得
+  getRefreshTokenRemainingDays(): number | null {
+    if (!this.config.refreshTokenExpiresAt) {
+      return null;
+    }
+    
+    const expiresAt = new Date(this.config.refreshTokenExpiresAt);
+    const now = new Date();
+    const diffTime = expiresAt.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays > 0 ? diffDays : 0;
   }
 }

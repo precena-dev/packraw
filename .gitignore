@@ -38,3 +38,6 @@ logs/
 # Electron specific
 electron-builder.yml
 *.unpacked/
+
+# Configuration files with secrets
+config.json
