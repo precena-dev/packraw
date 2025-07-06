@@ -31,11 +31,12 @@ export class FreeeApiService {
   private axiosInstance: AxiosInstance;
   private config: FreeeConfig;
   private authWindow: BrowserWindow | null = null;
+  private refreshAttempts: number = 0;
 
   constructor(config: FreeeConfig) {
     this.config = config;
     this.axiosInstance = axios.create({
-      baseURL: 'https://api.freee.co.jp',
+      baseURL: 'https://api.freee.co.jp/',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -51,19 +52,36 @@ export class FreeeApiService {
     this.axiosInstance.interceptors.response.use(
       (response) => response,
       async (error) => {
+        const originalRequest = error.config;
+        
+        // 既にリトライ済みの場合はエラーを返す
+        if (originalRequest._retry) {
+          return Promise.reject(error);
+        }
+        
         if (error.response?.status === 401 && this.config.refreshToken) {
+          // 無限ループを防ぐため、リフレッシュ試行回数を制限
+          if (this.refreshAttempts >= 2) {
+            console.error('Token refresh limit exceeded. Please re-authenticate.');
+            this.refreshAttempts = 0;
+            throw new Error('認証に失敗しました。再度ログインしてください。');
+          }
+          
           // リフレッシュトークンの有効期限をチェック
           if (this.isRefreshTokenExpired()) {
-            // リフレッシュトークンが期限切れの場合は再認証が必要
             throw new Error('リフレッシュトークンの有効期限が切れています。再度ログインしてください。');
           }
           
+          originalRequest._retry = true;
+          
           try {
+            this.refreshAttempts++;
             await this.refreshAccessToken();
-            error.config.headers.Authorization = `Bearer ${this.config.accessToken}`;
-            return this.axiosInstance(error.config);
+            // 元のリクエストを再試行
+            originalRequest.headers.Authorization = `Bearer ${this.config.accessToken}`;
+            return this.axiosInstance(originalRequest);
           } catch (refreshError) {
-            // リフレッシュトークンも無効な場合
+            console.error('Token refresh failed:', refreshError);
             throw new Error('認証の更新に失敗しました。再度ログインしてください。');
           }
         }
@@ -72,10 +90,22 @@ export class FreeeApiService {
     );
   }
 
+  /**
+   * 日本時間での日付を取得
+   * @param date 基準となる日時（省略時は現在時刻）
+   * @returns YYYY-MM-DD形式の日付文字列
+   */
+  private getJSTDate(date: Date = new Date()): string {
+    // UTCから日本時間（UTC+9）への変換
+    const utcTime = date.getTime();
+    const jstTime = new Date(utcTime + 9 * 60 * 60 * 1000);
+    return jstTime.toISOString().split('T')[0];
+  }
+
   private isRefreshTokenExpired(): boolean {
+    // 有効期限が設定されていない場合は期限切れとみなさない
     if (!this.config.refreshTokenExpiresAt) {
-      return false; // 有効期限が設定されていない場合は期限切れとみなさない
-    }
+      return false;     }
     
     const expiresAt = new Date(this.config.refreshTokenExpiresAt);
     const now = new Date();
@@ -160,6 +190,7 @@ export class FreeeApiService {
   }
 
   private async refreshAccessToken(): Promise<void> {
+    console.log('Refreshing access token...');
     const response = await axios.post('https://accounts.secure.freee.co.jp/public_api/token', {
       grant_type: 'refresh_token',
       client_id: this.config.clientId,
@@ -167,6 +198,7 @@ export class FreeeApiService {
       refresh_token: this.config.refreshToken,
     });
 
+    console.log('Token refresh successful');
     this.config.accessToken = response.data.access_token;
     this.config.refreshToken = response.data.refresh_token;
     
@@ -174,23 +206,49 @@ export class FreeeApiService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 90);
     this.config.refreshTokenExpiresAt = expiresAt.toISOString();
+    
+    // リフレッシュが成功したらカウンターをリセット
+    this.refreshAttempts = 0;
+    
+    console.log('New access token:', this.config.accessToken?.substring(0, 10) + '...');
   }
 
   async getEmployeeInfo(): Promise<any> {
-    const response = await this.axiosInstance.get('/hr/api/v1/employees/me', {
+    console.log('Getting employee info with company_id:', this.config.companyId);
+    if (!this.config.companyId) {
+      throw new Error('Company ID is required. Please get companies list first.');
+    }
+    const response = await this.axiosInstance.get('/hr/api/v1/users/me', {
       params: { company_id: this.config.companyId },
     });
-    return response.data;
+    console.log('Employee info response:', response.data);
+    
+    // レスポンス構造を整形
+    const userData = response.data;
+    const currentCompany = userData.companies?.find((c: any) => c.id === this.config.companyId);
+    
+    return {
+      user: userData,
+      employee: currentCompany ? {
+        id: currentCompany.employee_id,
+        name: currentCompany.display_name,
+        display_name: currentCompany.display_name,
+        company_name: currentCompany.name,
+        company_id: currentCompany.id
+      } : null
+    };
   }
 
   async timeClock(type: TimeClockType['type']): Promise<any> {
+    const now = new Date();
+    
     const response = await this.axiosInstance.post(
       `/hr/api/v1/employees/${this.config.employeeId}/time_clocks`,
       {
         company_id: this.config.companyId,
         type,
-        base_date: new Date().toISOString().split('T')[0],
-        datetime: new Date().toISOString(),
+        base_date: this.getJSTDate(now),
+        datetime: now.toISOString(), // datetimeはISO8601形式のままでOK（タイムゾーン情報を含む）
       }
     );
     return response.data;
@@ -205,23 +263,36 @@ export class FreeeApiService {
         }
       );
       
-      const data = response.data.employee_work_record;
+      console.log('Work record API response:', response.data);
+      
+      // レスポンス構造を確認
+      if (!response.data) {
+        console.log('No work record found for date:', date);
+        return null;
+      }
+      
+      const data = response.data;
       return {
-        date: data.date,
-        clockInAt: data.clock_in_at,
-        clockOutAt: data.clock_out_at,
+        date: data.date || date,
+        clockInAt: data.clock_in_at || null,
+        clockOutAt: data.clock_out_at || null,
         breakRecords: data.break_records || [],
       };
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        return null;
+      if (axios.isAxiosError(error)) {
+        console.log('Work record API error:', error.response?.status, error.response?.data);
+        if (error.response?.status === 404) {
+          console.log('No work record found for date:', date);
+          return null;
+        }
       }
+      console.error('Error fetching work record:', error);
       throw error;
     }
   }
 
   async getTodayWorkRecord(): Promise<WorkRecord | null> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = this.getJSTDate();
     return this.getWorkRecord(today);
   }
 
@@ -234,6 +305,13 @@ export class FreeeApiService {
   }
   
   // リフレッシュトークンの残り有効日数を取得
+  async getCompanies(): Promise<any> {
+    console.log('Getting companies list...');
+    const response = await this.axiosInstance.get('/api/v1/companies');
+    console.log('Companies response:', response.data);
+    return response.data;
+  }
+
   getRefreshTokenRemainingDays(): number | null {
     if (!this.config.refreshTokenExpiresAt) {
       return null;
