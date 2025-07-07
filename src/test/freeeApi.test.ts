@@ -177,8 +177,7 @@ describe('FreeeApiService', () => {
           expect.objectContaining({
             company_id: 123456,
             type: 'clock_in',
-            base_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-            datetime: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+            base_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
           })
         );
       }

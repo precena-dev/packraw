@@ -108,7 +108,10 @@ export const ApiModePanel: React.FC = () => {
   const updateTodayTimeClocks = async () => {
     try {
       if (isAuthorized) {
-        const today = new Date().toISOString().split('T')[0];
+        // 日本時間での今日の日付を取得
+        const now = new Date();
+        const jstTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+        const today = jstTime.toISOString().split('T')[0];
         const timeClocks = await window.electronAPI.freeeApi.getTimeClocks(today, today);
         console.log('Today time clocks:', timeClocks);
         setTodayTimeClocks(timeClocks);

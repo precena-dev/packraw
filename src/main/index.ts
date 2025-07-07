@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, session } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { ConfigManager } from './config';
 import { FreeeApiService } from './freeeApi';
@@ -17,7 +17,6 @@ function createWindow() {
     alwaysOnTop: windowConfig.alwaysOnTop,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
-      webviewTag: true,
       contextIsolation: true,
       nodeIntegration: false
     },
@@ -42,23 +41,6 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  // セッション設定
-  const partitionName = configManager.getPartitionName();
-  const profileSession = session.fromPartition(partitionName);
-  
-  // Chrome風の設定
-  profileSession.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-  
-  // Webセキュリティの設定
-  profileSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': ['default-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https: data: blob:']
-      }
-    });
-  });
-
   createWindow();
 
   app.on('activate', () => {
@@ -89,40 +71,6 @@ ipcMain.handle('update-config', (_event, newConfig) => {
   return configManager.getConfig();
 });
 
-// OAuth認証を外部ブラウザで開く
-ipcMain.handle('open-auth', async () => {
-  const authUrl = configManager.getFreeeUrl();
-  await shell.openExternal(authUrl);
-  return true;
-});
-
-// 認証成功後、Cookie情報を設定
-ipcMain.handle('set-auth-cookies', async (_event, cookies: any[]) => {
-  const partitionName = configManager.getPartitionName();
-  const ses = session.fromPartition(partitionName);
-  
-  for (const cookie of cookies) {
-    await ses.cookies.set({
-      url: 'https://p.secure.freee.co.jp',
-      name: cookie.name,
-      value: cookie.value,
-      domain: cookie.domain,
-      path: cookie.path || '/',
-      secure: cookie.secure || true,
-      httpOnly: cookie.httpOnly || false,
-      expirationDate: cookie.expirationDate
-    });
-  }
-  
-  return true;
-});
-
-// WebViewのセッションをリロード
-ipcMain.handle('reload-webview', () => {
-  if (mainWindow) {
-    mainWindow.webContents.send('reload-webview');
-  }
-});
 
 // freee API関連のハンドラー
 ipcMain.handle('freee-api-init', () => {

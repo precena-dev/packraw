@@ -12,9 +12,6 @@ export interface AppConfig {
       height: number;
       alwaysOnTop: boolean;
     };
-    freee: {
-      url: string;
-    };
   };
   api?: {
     clientId: string;
@@ -38,9 +35,6 @@ const defaultConfig: AppConfig = {
       width: 500,
       height: 500,
       alwaysOnTop: true
-    },
-    freee: {
-      url: "https://p.secure.freee.co.jp/#"
     }
   }
 };
@@ -85,13 +79,6 @@ export class ConfigManager {
     this.saveConfig();
   }
 
-  getPartitionName(): string {
-    return `persist:freee-${this.config.user.profile}`;
-  }
-
-  getFreeeUrl(): string {
-    return this.config.app.freee.url;
-  }
 
   getWindowConfig() {
     return this.config.app.window;

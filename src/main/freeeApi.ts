@@ -118,6 +118,7 @@ export class FreeeApiService {
     return jstTime.toISOString().split('T')[0];
   }
 
+
   private isRefreshTokenExpired(): boolean {
     // 有効期限が設定されていない場合は期限切れとみなさない
     if (!this.config.refreshTokenExpiresAt) {
@@ -264,7 +265,6 @@ export class FreeeApiService {
         company_id: this.config.companyId,
         type,
         base_date: this.getJSTDate(now),
-        datetime: now.toISOString(), // datetimeはISO8601形式のままでOK（タイムゾーン情報を含む）
       }
     );
     return response.data;

@@ -147,7 +147,7 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
               <table className="history-table">
                 <thead>
                   <tr>
-                    <th>勤務開始</th>
+                    <th>出勤</th>
                     <th>退勤</th>
                   </tr>
                 </thead>

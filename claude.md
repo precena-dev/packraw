@@ -9,12 +9,13 @@ freee Desktop Kintai
 freeeの勤怠打刻をデスクトップから素早く行えるようにし、打刻忘れを防ぎ、業務効率を向上させる。
 
 ### 主な機能
-- **APIモード**: freee APIを使用したネイティブ打刻機能
-- **WebViewモード**: freeeの打刻画面をWebViewで常駐表示
+- freee APIを使用したネイティブ打刻機能
 - ワンクリックで打刻可能なネイティブボタン
 - OAuth2.0認証によるセキュアなAPI連携
 - リアルタイム勤務時間表示とデータ取得
 - refreshTokenの90日有効期限管理
+- 打刻履歴の表示
+- 打刻ボタンの有効/無効制御
 
 ## 技術スタック
 
@@ -61,40 +62,37 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
 - アクセストークンの自動更新機能
 - refreshTokenの90日有効期限管理
 
-### 2. WebView表示機能 ✅実装済み（従来モード）
-- freeeの打刻画面を`<webview>`タグで表示
-- Cookie/セッション情報の永続化
-- Chromeライクなユーザーエージェント設定
-
-### 3. ネイティブ打刻ボタン ✅実装済み
-- **APIモード**: freee APIを直接呼び出し
+### 2. ネイティブ打刻ボタン ✅実装済み
+- freee APIを直接呼び出し
   - 勤務開始（clock_in）
   - 勤務終了（clock_out）
   - 休憩開始（break_begin）
   - 休憩終了（break_end）
-- **WebViewモード**: JavaScript実行による打刻処理
+- 打刻状態に応じたボタンの有効/無効制御
 
-### 4. 勤務時間表示機能 ✅実装済み
+### 3. 勤務時間表示機能 ✅実装済み
 - 本日の勤務時間をリアルタイム表示
 - 勤務開始からの経過時間を自動更新（1秒ごと）
-- APIモード: freee APIから実際の勤務記録を取得
-- useTimeTracker hookによる状態管理
+- freee APIから実際の勤務記録を取得
+
+### 4. 打刻履歴表示機能 ✅実装済み
+- 本日の打刻履歴を時系列で表示
+- 打刻タイプ（勤務開始/終了、休憩開始/終了）とアイコン表示
+- 日本時間（JST）での時刻表示
 
 ### 5. ウィンドウ管理 ✅実装済み
 - 常に最前面表示（Always on Top）
-- 固定サイズ（500x500px）
-- カスタムタイトルバー
-- 開発者ツールとリロードボタン
+- 可変サイズ（500x500px）
+- ウィンドウ移動
 
 ### 6. 認証・プロファイル管理 ✅実装済み
-- **APIモード**: OAuth2.0認証によるセキュアなAPI連携
-- **WebViewモード**: ユーザープロファイル別のセッション管理
+- OAuth2.0認証によるセキュアなAPI連携
 - 設定ファイル（config.json）による動的プロファイル設定
-- 永続化パーティションによるログイン状態保持
+- 従業員情報の自動取得と保存
 
 ## 設定ファイル管理
 
-### config.json構造（APIモード対応）
+### config.json構造
 ```json
 {
   "user": {
@@ -106,9 +104,6 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
       "width": 500,
       "height": 500,
       "alwaysOnTop": true
-    },
-    "freee": {
-      "url": "https://p.secure.freee.co.jp/#"
     }
   },
   "api": {
@@ -124,14 +119,9 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
 }
 ```
 
-### 動作モード切り替え
-- **APIモード**: `config.json`に`api`設定がある場合
-- **WebViewモード**: `api`設定がない場合（従来の動作）
-
 ### マルチユーザー対応
 - `config.json`の`user.profile`を変更することで異なるユーザーで利用可能
-- パーティション名: `persist:freee-{user.profile}`
-- 各ユーザーのログイン状態とAPIトークンが独立して保持される
+- 各ユーザーのAPIトークンが独立して保持される
 
 ## freee API認証設定
 
@@ -166,7 +156,7 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
 
 ## UI/UXデザイン
 
-### APIモードレイアウト
+### 現在のレイアウト（APIモード専用）
 ```
 ┌─────────────────────────────────┐
 │  freee勤怠管理    user@xxx.com  │ (500x500px)
@@ -181,25 +171,13 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
 │         [💼 休憩終了]           │
 │                                 │
 ├─────────────────────────────────┤
+│  本日の打刻履歴                │
+│  09:00 🏢 勤務開始             │
+│  12:00 ☕ 休憩開始             │
+│  13:00 💼 休憩終了             │
+│                                 │
+├─────────────────────────────────┤
 │  ステータス: 認証済み           │
-└─────────────────────────────────┘
-```
-
-### WebViewモードレイアウト（従来）
-```
-┌─────────────────────────────────┐
-│  freee打刻    🔧 🔄            │ (500x500px)
-├─────────────────────────────────┤
-│  本日の勤務時間: 00:00:00 ⚫    │
-├─────────────────────────────────┤
-│                                 │
-│         WebView                 │
-│     (freee打刻画面)             │
-│                                 │
-│                                 │
-├─────────────────────────────────┤
-│  [勤務開始] [勤務終了]          │
-│  [休憩開始] [休憩終了]          │
 └─────────────────────────────────┘
 ```
 
@@ -219,17 +197,17 @@ freee-webview-app/
 │   ├── renderer/          # レンダラープロセス（React）
 │   │   ├── App.tsx        # メインアプリコンポーネント
 │   │   ├── components/
-│   │   │   ├── ApiModePanel.tsx    # APIモード用UI
-│   │   │   ├── WebView.tsx         # WebView表示
-│   │   │   ├── ControlPanel.tsx    # 打刻ボタンパネル
+│   │   │   ├── ApiModePanel.tsx     # APIモード用UI
+│   │   │   ├── WorkTimeSection.tsx  # 打刻ボタンセクション
 │   │   │   ├── WorkingTimeDisplay.tsx # 勤務時間表示
-│   │   │   └── LoginButton.tsx     # ログインボタン（未使用）
-│   │   ├── hooks/
-│   │   │   └── useTimeTracker.ts   # 勤務時間管理Hook
+│   │   │   └── TimeClockHistory.tsx # 打刻履歴表示
 │   │   ├── main.tsx       # Reactエントリーポイント
 │   │   └── index.css      # Tailwind CSSスタイル
 │   ├── preload/           # プリロードスクリプト
 │   │   └── index.ts       # IPC API定義
+│   ├── test/              # テストファイル
+│   │   ├── freeeApi.test.ts         # ユニットテスト
+│   │   └── freeeApi.integration.test.ts # 統合テスト
 │   └── types/
 │       └── electron.d.ts  # TypeScript型定義
 ├── index.html             # HTMLテンプレート
@@ -255,12 +233,7 @@ freee-webview-app/
    - 常に最前面表示
    - カスタムタイトルバー
 
-3. **WebViewコンポーネント** ✅
-   - freee打刻画面表示
-   - Chrome風ユーザーエージェント
-   - 動的プロファイル設定
-
-4. **設定ファイル管理** ✅
+3. **設定ファイル管理** ✅
    - config.json による設定管理
    - ConfigManagerクラス
    - マルチユーザー対応
@@ -275,6 +248,7 @@ freee-webview-app/
    - FreeeApiServiceクラス
    - 打刻API連携
    - 勤務記録取得API
+   - 日本時間（JST）対応
 
 3. **トークン管理** ✅
    - アクセストークン自動更新
@@ -283,19 +257,37 @@ freee-webview-app/
 
 4. **ネイティブUI** ✅
    - ApiModePanelコンポーネント
-   - 動作モード自動切り替え
    - エラーハンドリング
 
-### Phase 3: 勤務時間機能 ✅完了
+### Phase 3: 勤務時間・打刻履歴機能 ✅完了
 1. 勤務時間計測ロジック ✅
 2. リアルタイム表示 ✅
 3. API連携による実データ取得 ✅
+4. 打刻履歴表示 ✅
+5. 打刻ボタン状態制御 ✅
 
-### Phase 4: 最適化・改善 🚧進行中
-1. エラーハンドリングの強化
-2. ユーザビリティ向上
-3. 自動アップデート機能
-4. インストーラー作成
+### Phase 4: WebViewモード削除 ✅完了
+1. WebViewコンポーネント削除 ✅
+2. ControlPanelコンポーネント削除 ✅
+3. useTimeTrackerフック削除 ✅
+4. WebView関連設定削除 ✅
+5. APIモード専用化 ✅
+
+### Phase 5: 今後の拡張予定 🔄計画中
+1. **PCイベント連携**
+   - 画面ロック/アンロック検知
+   - スリープ/復帰検知
+   - 自動休憩打刻機能
+
+2. **システム統合**
+   - タスクトレイアイコン対応
+   - タスクバー格納機能
+   - ショートカットキー対応
+
+3. **ユーザビリティ向上**
+   - 打刻リマインダー通知
+   - refreshToken期限警告
+   - 設定UI画面
 
 ## 実装例
 
@@ -315,16 +307,23 @@ export class FreeeApiService {
   }
 
   async timeClock(type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end'): Promise<any> {
+    const now = new Date();
     const response = await this.axiosInstance.post(
       `/hr/api/v1/employees/${this.config.employeeId}/time_clocks`,
       {
         company_id: this.config.companyId,
         type,
-        base_date: new Date().toISOString().split('T')[0],
-        datetime: new Date().toISOString(),
+        base_date: this.getJSTDate(now), // 日本時間での日付
       }
     );
     return response.data;
+  }
+
+  private getJSTDate(date: Date = new Date()): string {
+    // UTCから日本時間（UTC+9）への変換
+    const utcTime = date.getTime();
+    const jstTime = new Date(utcTime + 9 * 60 * 60 * 1000);
+    return jstTime.toISOString().split('T')[0];
   }
 }
 ```
@@ -333,45 +332,51 @@ export class FreeeApiService {
 ```typescript
 export const ApiModePanel: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const { workingTime, isWorking, startWork, endWork } = useTimeTracker();
+  const [buttonStates, setButtonStates] = useState<TimeClockButtonState>({
+    clockIn: true,
+    clockOut: false,
+    breakBegin: false,
+    breakEnd: false
+  });
+  const [todayTimeClocks, setTodayTimeClocks] = useState<any[]>([]);
+
+  const updateTodayTimeClocks = async () => {
+    // 日本時間での今日の日付を取得
+    const now = new Date();
+    const jstTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const today = jstTime.toISOString().split('T')[0];
+    const timeClocks = await window.electronAPI.freeeApi.getTimeClocks(today, today);
+    setTodayTimeClocks(timeClocks);
+  };
 
   const handleTimeClock = async (type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => {
     await window.electronAPI.freeeApi.timeClock(type);
-    if (type === 'clock_in') startWork();
-    else if (type === 'clock_out') endWork();
+    // 打刻後にボタン状態と打刻履歴を更新
+    await updateButtonStates();
+    await updateTodayTimeClocks();
   };
 
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <button onClick={() => handleTimeClock('clock_in')}>
-        勤務開始
-      </button>
-      {/* その他のボタン */}
+    <div className="h-full flex flex-col bg-blue-50">
+      <WorkingTimeDisplay 
+        employeeInfo={employeeInfo}
+        todayTimeClocks={todayTimeClocks}
+      />
+      <WorkTimeSection
+        loading={loading}
+        buttonStates={buttonStates}
+        onTimeClock={handleTimeClock}
+      />
+      <TimeClockHistory todayTimeClocks={todayTimeClocks} />
     </div>
   );
 };
 ```
 
-### 動作モード自動切り替え (renderer/App.tsx)
+### アプリケーションメイン (renderer/App.tsx)
 ```typescript
 function App() {
-  const [useApiMode, setUseApiMode] = useState(false);
-
-  useEffect(() => {
-    window.electronAPI.getConfig().then(config => {
-      if (config.api) {
-        setUseApiMode(true);
-      }
-    });
-  }, []);
-
-  if (useApiMode) {
-    return <ApiModePanel />;
-  }
-
-  return (
-    // WebViewモードのUI
-  );
+  return <ApiModePanel />;
 }
 ```
 
@@ -384,8 +389,6 @@ function App() {
 - Client Secretの設定ファイル分離（.gitignoreに追加）
 - contextIsolation: true（メインプロセス）
 - nodeIntegration: false
-- webviewTag サンドボックス化
-- 永続化パーティションによる認証情報隔離
 
 ### セキュリティ推奨事項
 - config.jsonをバージョン管理から除外
@@ -408,11 +411,17 @@ npm run dist:linux
 
 # TypeScript型チェック
 npx tsc --noEmit
+
+# テスト実行
+npm test
+
+# 実際のAPIを使用したテスト（設定ファイル必要）
+TEST_REAL_API=true npm test
 ```
 
 ## 使用方法
 
-### 初回セットアップ（APIモード）
+### 初回セットアップ
 
 1. **freee開発者アカウントでアプリケーション作成**
    - [freee Developers](https://developer.freee.co.jp/)でアプリ登録
@@ -445,41 +454,13 @@ npx tsc --noEmit
    - freeeの認証画面で許可
    - 自動的に従業員情報とトークンが保存される
 
-### 初回セットアップ（WebViewモード）
-
-1. **設定ファイル作成**
-   ```bash
-   cp config.sample.json config.json
-   ```
-
-2. **api設定を削除またはコメントアウト**
-   ```json
-   {
-     "user": {
-       "email": "your.email@company.com",
-       "profile": "your.email@company.com"
-     }
-   }
-   ```
-
-3. **アプリケーション起動**
-   ```bash
-   npm run dev
-   ```
-
-4. **WebView内でfreeeにログイン**
-
 ### 操作方法
 
-#### APIモード
 - 4つの打刻ボタンで直接API経由で打刻
 - リアルタイム勤務時間表示
+- 本日の打刻履歴表示
 - 認証状態とrefreshToken期限の表示
-
-#### WebViewモード
-- 右上の🔧ボタン: WebView開発者ツール
-- 右上の🔄ボタン: WebView再読み込み
-- 下部の4つのボタン: JavaScript経由での打刻操作
+- 打刻状態に応じたボタンの有効/無効制御
 
 ## トラブルシューティング
 
@@ -498,13 +479,59 @@ npx tsc --noEmit
    - 従業員IDが正しく取得されているか確認
    - freee側の勤怠設定を確認
 
-## 今後の拡張案
+4. **時刻がずれて表示される**
+   - アプリケーションは日本時間（JST）で動作
+   - PCのタイムゾーン設定を確認
 
-### 追加機能候補
-- refreshToken期限の3日前からの警告通知
-- 打刻リマインダー通知
-- 月次勤務時間レポート
-- ショートカットキー対応
-- 設定UI画面
-- 複数アカウント同時利用
-- freee以外の勤怠システムとの連携
+## 今後の拡張予定
+
+### Phase 5: PCイベント連携 🔄計画中
+- **画面ロック/アンロック検知**
+  - Windows/macOS/Linuxでの画面ロックイベント監視
+  - ロック時の自動休憩開始打刻
+  - アンロック時の自動休憩終了打刻
+
+- **スリープ/復帰検知**
+  - システムスリープ状態の監視
+  - スリープ前の自動休憩開始
+  - 復帰時の自動休憩終了
+
+### Phase 6: システム統合 🔄計画中
+- **タスクトレイ対応**
+  - システムトレイアイコン表示
+  - トレイからの簡易操作
+  - バックグラウンド動作
+
+- **タスクバー統合**
+  - ウィンドウの最小化時タスクバー格納
+  - タスクバーからの復帰
+
+- **ショートカットキー**
+  - グローバルショートカットによる打刻
+  - 設定可能なキーバインド
+
+### Phase 7: ユーザビリティ向上 🔄計画中
+- **通知機能**
+  - 打刻リマインダー通知
+  - refreshToken期限警告（3日前から）
+  - 打刻完了通知
+
+- **設定UI**
+  - グラフィカルな設定画面
+  - 通知設定のカスタマイズ
+  - ショートカットキー設定
+
+- **レポート機能**
+  - 月次勤務時間レポート
+  - 打刻履歴のエクスポート
+  - 勤務時間の統計表示
+
+### Phase 8: 多機能対応 🔄計画中
+- **複数アカウント対応**
+  - 同時ログイン機能
+  - アカウント切り替え
+
+- **他システム連携**
+  - freee以外の勤怠システム対応
+  - カレンダーアプリ連携
+  - Slack/Teams連携

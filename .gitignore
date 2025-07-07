@@ -42,3 +42,4 @@ electron-builder.yml
 
 # Configuration files with secrets
 config.json
+.claude/*
