@@ -11,9 +11,9 @@ function createWindow() {
   const windowConfig = configManager.getWindowConfig();
   
   mainWindow = new BrowserWindow({
-    width: 1200,  // ウィンドウサイズを大きく
-    height: 800,  // ウィンドウサイズを大きく
-    resizable: true,  // リサイズ可能に
+    width: windowConfig.width,
+    height: windowConfig.height,
+    resizable: true,
     alwaysOnTop: windowConfig.alwaysOnTop,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -223,4 +223,19 @@ ipcMain.handle('freee-api-get-today-work-record', async () => {
 ipcMain.handle('freee-api-get-companies', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
   return await freeeApiService.getCompanies();
+});
+
+ipcMain.handle('freee-api-get-time-clock-button-states', async () => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  return await freeeApiService.getTimeClockButtonStates();
+});
+
+ipcMain.handle('freee-api-get-last-time-clock-type', async () => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  return await freeeApiService.getLastTimeClockType();
+});
+
+ipcMain.handle('freee-api-get-time-clocks', async (_event, fromDate?: string, toDate?: string) => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  return await freeeApiService.getTimeClocks(fromDate, toDate);
 });

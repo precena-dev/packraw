@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { FreeeApiService, FreeeConfig } from '../main/freeeApi';
+import { FreeeApiService, FreeeConfig, TimeClock } from '../main/freeeApi';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -127,23 +127,26 @@ describe('FreeeApiService Integration Tests', () => {
     })));
   }, 30000);
 
-  skipIfMockMode('should calculate refresh token remaining days correctly', async () => {
-    const remainingDays = service.getRefreshTokenRemainingDays();
-    
-    expect(remainingDays).toBeDefined();
-    expect(typeof remainingDays).toBe('number');
-    
-    if (remainingDays !== null) {
-      expect(remainingDays).toBeGreaterThanOrEqual(0);
-      expect(remainingDays).toBeLessThanOrEqual(90);
-      
-      console.log('Refresh Token Remaining Days:', remainingDays);
-      
-      if (remainingDays <= 3) {
-        console.warn('⚠️ Refresh token will expire soon!');
-      }
-    }
-  });
+  // 実行時にトークンがリフェッシュされてしまうから、通常はコメントアウト。
+  // 必要に応じてコメントアウト
+  // *
+  //skipIfMockMode('should calculate refresh token remaining days correctly', async () => {
+  //  const remainingDays = service.getRefreshTokenRemainingDays();
+  //  
+  //  expect(remainingDays).toBeDefined();
+  //  expect(typeof remainingDays).toBe('number');
+  //  
+  //  if (remainingDays !== null) {
+  //    expect(remainingDays).toBeGreaterThanOrEqual(0);
+  //    expect(remainingDays).toBeLessThanOrEqual(90);
+  //    
+  //    console.log('Refresh Token Remaining Days:', remainingDays);
+  //    
+  //    if (remainingDays <= 3) {
+  //      console.warn('⚠️ Refresh token will expire soon!');
+  //    }
+  //  }
+  //});
 
   skipIfMockMode('should get work record for specific date', async () => {
     // 昨日の日付で勤務記録を取得
@@ -169,6 +172,104 @@ describe('FreeeApiService Integration Tests', () => {
       });
     } else {
       console.log(`No work record found for ${testDate}`);
+    }
+  }, 30000);
+
+  skipIfMockMode('should get time clocks from real API', async () => {
+    const result = await service.getTimeClocks();
+    
+    expect(result).toBeDefined();
+    expect(Array.isArray(result)).toBe(true);
+    
+    console.log('Time clocks count:', result.length);
+    
+    if (result.length > 0) {
+      const timeClock = result[0];
+      expect(timeClock).toHaveProperty('id');
+      expect(timeClock).toHaveProperty('type');
+      expect(timeClock).toHaveProperty('date');
+      expect(timeClock).toHaveProperty('datetime');
+      expect(timeClock).toHaveProperty('original_datetime');
+      expect(timeClock).toHaveProperty('note');
+      expect(['clock_in', 'clock_out', 'break_begin', 'break_end']).toContain(timeClock.type);
+      
+      console.log('First time clock:', {
+        id: timeClock.id,
+        type: timeClock.type,
+        date: timeClock.date,
+        datetime: timeClock.datetime
+      });
+    }
+  }, 30000);
+
+  skipIfMockMode('should get time clocks for specific date range', async () => {
+    // 今月の範囲で取得
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    // 日本時間での日付に変換
+    const jstFirstDay = new Date(firstDay.getTime() + 9 * 60 * 60 * 1000);
+    const jstLastDay = new Date(lastDay.getTime() + 9 * 60 * 60 * 1000);
+    
+    const fromDate = jstFirstDay.toISOString().split('T')[0];
+    const toDate = jstLastDay.toISOString().split('T')[0];
+    
+    const result = await service.getTimeClocks(fromDate, toDate);
+    
+    expect(result).toBeDefined();
+    expect(Array.isArray(result)).toBe(true);
+    
+    console.log(`Time clocks from ${fromDate} to ${toDate}:`, result.length);
+    
+    // 日付範囲の検証
+    result.forEach((timeClock: TimeClock) => {
+      expect(timeClock.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(timeClock.date >= fromDate).toBe(true);
+      expect(timeClock.date <= toDate).toBe(true);
+    });
+  }, 30000);
+
+  skipIfMockMode('should get last time clock type from real API', async () => {
+    const result = await service.getLastTimeClockType();
+    
+    // 結果がnullでも正常（今日打刻していない場合）
+    if (result !== null) {
+      expect(['clock_in', 'clock_out', 'break_begin', 'break_end']).toContain(result);
+      console.log('Last time clock type:', result);
+    } else {
+      console.log('No time clock found for today');
+    }
+  }, 30000);
+
+  skipIfMockMode('should get today time clocks and verify sorting', async () => {
+    // 今日の日付で打刻一覧を取得
+    const today = new Date();
+    const jstToday = new Date(today.getTime() + 9 * 60 * 60 * 1000);
+    const todayStr = jstToday.toISOString().split('T')[0];
+    
+    const result = await service.getTimeClocks(todayStr, todayStr);
+    
+    expect(result).toBeDefined();
+    expect(Array.isArray(result)).toBe(true);
+    
+    console.log('Today time clocks:', result.length);
+    
+    if (result.length > 1) {
+      // 複数の打刻がある場合、datetimeの順序を確認
+      for (let i = 0; i < result.length - 1; i++) {
+        console.log(`Time clock ${i}: ${result[i].type} at ${result[i].datetime}`);
+      }
+      
+      // getLastTimeClockTypeとの整合性確認
+      const lastType = await service.getLastTimeClockType();
+      if (lastType !== null) {
+        // 手動でソートして最新を取得
+        const sorted = result.sort((a, b) => 
+          new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
+        );
+        expect(lastType).toBe(sorted[0].type);
+      }
     }
   }, 30000);
 

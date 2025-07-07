@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
-import { FreeeApiService, FreeeConfig, WorkRecord } from '../main/freeeApi';
+import { FreeeApiService, FreeeConfig, WorkRecord, TimeClock, TimeClockButtonState } from '../main/freeeApi';
 import axios from 'axios';
 
 // モックの設定
@@ -363,6 +363,466 @@ describe('FreeeApiService', () => {
       const result = serviceWithExpiredToken.getRefreshTokenRemainingDays();
       
       expect(result).toBe(0);
+    });
+  });
+
+  describe('Time Clocks API', () => {
+    describe('getTimeClocks', () => {
+      it('should get time clocks for specified date range', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: [
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              },
+              {
+                id: 2,
+                type: 'clock_out',
+                date: '2025-01-01',
+                datetime: '2025-01-01T18:00:00+09:00',
+                original_datetime: '2025-01-01T18:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+        }
+
+        const result = await service.getTimeClocks('2025-01-01', '2025-01-01');
+
+        if (!USE_REAL_API) {
+          expect(mockAxiosInstance.get).toHaveBeenCalledWith(
+            `/hr/api/v1/employees/${config.employeeId}/time_clocks`,
+            {
+              params: {
+                company_id: config.companyId,
+                from_date: '2025-01-01',
+                to_date: '2025-01-01'
+              }
+            }
+          );
+        }
+
+        expect(result).toBeDefined();
+        expect(Array.isArray(result)).toBe(true);
+        
+        if (result.length > 0) {
+          const timeClock = result[0];
+          expect(timeClock).toHaveProperty('id');
+          expect(timeClock).toHaveProperty('type');
+          expect(timeClock).toHaveProperty('date');
+          expect(timeClock).toHaveProperty('datetime');
+          expect(['clock_in', 'clock_out', 'break_begin', 'break_end']).toContain(timeClock.type);
+        }
+      });
+
+      it('should get time clocks without date parameters', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: []
+          };
+
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+        }
+
+        const result = await service.getTimeClocks();
+
+        if (!USE_REAL_API) {
+          expect(mockAxiosInstance.get).toHaveBeenCalledWith(
+            `/hr/api/v1/employees/${config.employeeId}/time_clocks`,
+            {
+              params: {
+                company_id: config.companyId
+              }
+            }
+          );
+        }
+
+        expect(result).toBeDefined();
+        expect(Array.isArray(result)).toBe(true);
+      });
+    });
+
+    describe('getLastTimeClockType', () => {
+      it('should return last time clock type for today', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: [
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              },
+              {
+                id: 2,
+                type: 'clock_out',
+                date: '2025-01-01',
+                datetime: '2025-01-01T18:00:00+09:00',
+                original_datetime: '2025-01-01T18:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+        }
+
+        const result = await service.getLastTimeClockType();
+
+        if (!USE_REAL_API) {
+          expect(result).toBe('clock_out'); // 最新の打刻タイプ
+        } else {
+          // 実際のAPIでは結果がnullの場合もある
+          if (result !== null) {
+            expect(['clock_in', 'clock_out', 'break_begin', 'break_end']).toContain(result);
+          }
+        }
+      });
+
+      it('should return null when no time clocks found', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: []
+          };
+
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+
+          const result = await service.getLastTimeClockType();
+          expect(result).toBeNull();
+        }
+      });
+
+      it('should sort time clocks by datetime and return the latest', async () => {
+        if (!USE_REAL_API) {
+          // 意図的に時刻順序を逆にしたデータでテスト
+          const mockResponse = {
+            data: [
+              {
+                id: 2,
+                type: 'clock_out',
+                date: '2025-01-01',
+                datetime: '2025-01-01T18:00:00+09:00',
+                original_datetime: '2025-01-01T18:00:00+09:00',
+                note: ''
+              },
+              {
+                id: 3,
+                type: 'break_begin',
+                date: '2025-01-01',
+                datetime: '2025-01-01T12:00:00+09:00',
+                original_datetime: '2025-01-01T12:00:00+09:00',
+                note: ''
+              },
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+
+          const result = await service.getLastTimeClockType();
+          expect(result).toBe('clock_out'); // 18:00の打刻が最新
+        }
+      });
+    });
+  });
+
+  describe('Time Clock Button Validation', () => {
+    describe('getAvailableTimeClockTypes', () => {
+      it('should return clock_in only for null (no time clocks)', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = { data: [] };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.getAvailableTimeClockTypes();
+          expect(result).toEqual(['clock_in']);
+        }
+      });
+
+      it('should return clock_out and break_begin after clock_in', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: [
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.getAvailableTimeClockTypes();
+          expect(result).toEqual(['clock_out', 'break_begin']);
+        }
+      });
+
+      it('should return break_end only after break_begin', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: [
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              },
+              {
+                id: 2,
+                type: 'break_begin',
+                date: '2025-01-01',
+                datetime: '2025-01-01T12:00:00+09:00',
+                original_datetime: '2025-01-01T12:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.getAvailableTimeClockTypes();
+          expect(result).toEqual(['break_end']);
+        }
+      });
+
+      it('should return clock_out and break_begin after break_end', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: [
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              },
+              {
+                id: 2,
+                type: 'break_begin',
+                date: '2025-01-01',
+                datetime: '2025-01-01T12:00:00+09:00',
+                original_datetime: '2025-01-01T12:00:00+09:00',
+                note: ''
+              },
+              {
+                id: 3,
+                type: 'break_end',
+                date: '2025-01-01',
+                datetime: '2025-01-01T13:00:00+09:00',
+                original_datetime: '2025-01-01T13:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.getAvailableTimeClockTypes();
+          expect(result).toEqual(['clock_out', 'break_begin']);
+        }
+      });
+
+      it('should return empty array after clock_out', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: [
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              },
+              {
+                id: 2,
+                type: 'clock_out',
+                date: '2025-01-01',
+                datetime: '2025-01-01T18:00:00+09:00',
+                original_datetime: '2025-01-01T18:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.getAvailableTimeClockTypes();
+          expect(result).toEqual([]);
+        }
+      });
+    });
+
+    describe('getTimeClockButtonStates', () => {
+      it('should return correct button states for no time clocks', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = { data: [] };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.getTimeClockButtonStates();
+          expect(result).toEqual({
+            clockIn: true,
+            clockOut: false,
+            breakBegin: false,
+            breakEnd: false
+          });
+        }
+      });
+
+      it('should return correct button states after clock_in', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: [
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.getTimeClockButtonStates();
+          expect(result).toEqual({
+            clockIn: false,
+            clockOut: true,
+            breakBegin: true,
+            breakEnd: false
+          });
+        }
+      });
+
+      it('should return correct button states during break', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: [
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              },
+              {
+                id: 2,
+                type: 'break_begin',
+                date: '2025-01-01',
+                datetime: '2025-01-01T12:00:00+09:00',
+                original_datetime: '2025-01-01T12:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.getTimeClockButtonStates();
+          expect(result).toEqual({
+            clockIn: false,
+            clockOut: false,
+            breakBegin: false,
+            breakEnd: true
+          });
+        }
+      });
+
+      it('should return all false after clock_out', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: [
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              },
+              {
+                id: 2,
+                type: 'clock_out',
+                date: '2025-01-01',
+                datetime: '2025-01-01T18:00:00+09:00',
+                original_datetime: '2025-01-01T18:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.getTimeClockButtonStates();
+          expect(result).toEqual({
+            clockIn: false,
+            clockOut: false,
+            breakBegin: false,
+            breakEnd: false
+          });
+        }
+      });
+    });
+
+    describe('isTimeClockTypeAvailable', () => {
+      it('should return true for clock_in when no time clocks exist', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = { data: [] };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.isTimeClockTypeAvailable('clock_in');
+          expect(result).toBe(true);
+        }
+      });
+
+      it('should return false for clock_out when no time clocks exist', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = { data: [] };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.isTimeClockTypeAvailable('clock_out');
+          expect(result).toBe(false);
+        }
+      });
+
+      it('should return true for break_begin after clock_in', async () => {
+        if (!USE_REAL_API) {
+          const mockResponse = {
+            data: [
+              {
+                id: 1,
+                type: 'clock_in',
+                date: '2025-01-01',
+                datetime: '2025-01-01T09:00:00+09:00',
+                original_datetime: '2025-01-01T09:00:00+09:00',
+                note: ''
+              }
+            ]
+          };
+          mockAxiosInstance.get.mockResolvedValue(mockResponse);
+          
+          const result = await service.isTimeClockTypeAvailable('break_begin');
+          expect(result).toBe(true);
+        }
+      });
     });
   });
 

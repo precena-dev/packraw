@@ -1,7 +1,6 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { WebView, WebViewHandle } from './components/WebView';
 import { ControlPanel } from './components/ControlPanel';
-import { WorkingTimeDisplay } from './components/WorkingTimeDisplay';
 import { ApiModePanel } from './components/ApiModePanel';
 import { useTimeTracker } from './hooks/useTimeTracker';
 
@@ -58,10 +57,10 @@ function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      <div className="bg-white shadow-sm p-4 flex justify-between items-center">
+    <div className="flex flex-col h-screen bg-blue-50">
+      <div className="bg-white shadow-sm p-4 flex justify-between items-center" style={{ WebkitAppRegion: 'drag' } as any}>
         <h1 className="text-lg font-semibold text-gray-800">freee打刻</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' } as any}>
           <button
             onClick={() => {
               if (webviewRef.current) {
@@ -90,7 +89,14 @@ function App() {
         </div>
       </div>
       
-      <WorkingTimeDisplay workingTime={workingTime} isWorking={isWorking} />
+      {/* WebViewモード用のシンプルなヘッダー */}
+      <div className="bg-white border-b p-4" style={{ WebkitAppRegion: 'drag' } as any}>
+        <div className="flex items-center justify-center">
+          <span className="text-lg text-gray-700">
+            本日の勤務時間: {workingTime} {isWorking ? '🟢' : '⚫'}
+          </span>
+        </div>
+      </div>
       
       <div className="flex-1">
         <WebView 

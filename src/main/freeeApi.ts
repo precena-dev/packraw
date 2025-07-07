@@ -27,6 +27,22 @@ export interface WorkRecord {
   }[];
 }
 
+export interface TimeClock {
+  id: number;
+  type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end';
+  date: string;
+  datetime: string;
+  original_datetime: string;
+  note: string;
+}
+
+export interface TimeClockButtonState {
+  clockIn: boolean;
+  clockOut: boolean;
+  breakBegin: boolean;
+  breakEnd: boolean;
+}
+
 export class FreeeApiService {
   private axiosInstance: AxiosInstance;
   private config: FreeeConfig;
@@ -323,5 +339,111 @@ export class FreeeApiService {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
     return diffDays > 0 ? diffDays : 0;
+  }
+
+  async getTimeClocks(fromDate?: string, toDate?: string): Promise<TimeClock[]> {
+    console.log('Getting time clocks...');
+    
+    const params: any = {
+      company_id: this.config.companyId,
+    };
+    
+    if (fromDate) {
+      params.from_date = fromDate;
+    }
+    
+    if (toDate) {
+      params.to_date = toDate;
+    }
+    
+    const response = await this.axiosInstance.get(
+      `/hr/api/v1/employees/${this.config.employeeId}/time_clocks`,
+      { params }
+    );
+    
+    console.log('Time clocks response:', response.data);
+    return response.data; // レスポンスは直接TimeClock[]の配列
+  }
+
+  async getLastTimeClockType(): Promise<string | null> {
+    console.log('Getting last time clock type...');
+    
+    try {
+      const today = this.getJSTDate();
+      const timeClocks = await this.getTimeClocks(today, today);
+      
+      if (!timeClocks || timeClocks.length === 0) {
+        console.log('No time clocks found for today');
+        return null;
+      }
+      
+      // 最新の打刻を取得（datetimeでソート）
+      const sortedClocks = timeClocks.sort((a, b) => 
+        new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
+      );
+      
+      const lastClock = sortedClocks[0];
+      console.log('Last time clock:', lastClock);
+      
+      return lastClock.type;
+    } catch (error) {
+      console.error('Error getting last time clock type:', error);
+      throw error;
+    }
+  }
+
+  async getAvailableTimeClockTypes(): Promise<string[]> {
+    console.log('Getting available time clock types...');
+    
+    try {
+      const lastType = await this.getLastTimeClockType();
+      
+      switch (lastType) {
+        case null: // 未打刻
+          return ['clock_in'];
+        case 'clock_in': // 勤務開始済み
+          return ['clock_out', 'break_begin'];
+        case 'break_begin': // 休憩中
+          return ['break_end'];
+        case 'break_end': // 休憩終了
+          return ['clock_out', 'break_begin'];
+        case 'clock_out': // 勤務終了済み
+          return []; // 当日勤務終了
+        default:
+          console.warn('Unknown time clock type:', lastType);
+          return [];
+      }
+    } catch (error) {
+      console.error('Error getting available time clock types:', error);
+      return []; // エラー時は全て無効
+    }
+  }
+
+  async getTimeClockButtonStates(): Promise<TimeClockButtonState> {
+    console.log('Getting time clock button states...');
+    
+    try {
+      const availableTypes = await this.getAvailableTimeClockTypes();
+      
+      return {
+        clockIn: availableTypes.includes('clock_in'),
+        clockOut: availableTypes.includes('clock_out'),
+        breakBegin: availableTypes.includes('break_begin'),
+        breakEnd: availableTypes.includes('break_end')
+      };
+    } catch (error) {
+      console.error('Error getting time clock button states:', error);
+      // エラー時は全て無効にする
+      return {
+        clockIn: false,
+        clockOut: false,
+        breakBegin: false,
+        breakEnd: false
+      };
+    }
+  }
+
+  isTimeClockTypeAvailable(type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end'): Promise<boolean> {
+    return this.getAvailableTimeClockTypes().then(types => types.includes(type));
   }
 }

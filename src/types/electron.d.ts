@@ -1,5 +1,12 @@
 export {};
 
+interface TimeClockButtonState {
+  clockIn: boolean;
+  clockOut: boolean;
+  breakBegin: boolean;
+  breakEnd: boolean;
+}
+
 interface AppConfig {
   user: {
     email: string;
@@ -43,6 +50,10 @@ declare global {
         getEmployeeInfo: () => Promise<any>;
         timeClock: (type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => Promise<any>;
         getTodayWorkRecord: () => Promise<any>;
+        getCompanies: () => Promise<any>;
+        getTimeClockButtonStates: () => Promise<TimeClockButtonState>;
+        getLastTimeClockType: () => Promise<string | null>;
+        getTimeClocks: (fromDate?: string, toDate?: string) => Promise<any[]>;
       };
     };
   }

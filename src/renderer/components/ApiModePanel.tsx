@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useTimeTracker } from '../hooks/useTimeTracker';
+import { WorkTimeSection } from './WorkTimeSection';
+import { WorkingTimeDisplay } from './WorkingTimeDisplay';
+import { TimeClockHistory } from './TimeClockHistory';
+
+interface TimeClockButtonState {
+  clockIn: boolean;
+  clockOut: boolean;
+  breakBegin: boolean;
+  breakEnd: boolean;
+}
 
 export const ApiModePanel: React.FC = () => {
   const [isApiInitialized, setIsApiInitialized] = useState(false);
@@ -7,12 +16,20 @@ export const ApiModePanel: React.FC = () => {
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [buttonStates, setButtonStates] = useState<TimeClockButtonState>({
+    clockIn: true,
+    clockOut: false,
+    breakBegin: false,
+    breakEnd: false
+  });
+  const [todayTimeClocks, setTodayTimeClocks] = useState<any[]>([]);
 
-  const { workingTime, isWorking, startWork, endWork } = useTimeTracker();
 
   useEffect(() => {
     initializeApi();
   }, []);
+
+
 
   const initializeApi = async () => {
     try {
@@ -59,9 +76,6 @@ export const ApiModePanel: React.FC = () => {
             console.log('Attempting to get today work record...');
             const todayRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
             console.log('Today work record:', todayRecord);
-            if (todayRecord?.clockInAt) {
-              startWork();
-            }
           } catch (recordError) {
             console.log('Could not fetch today work record:', recordError);
             // 勤務記録が取得できなくても認証は成功している
@@ -77,6 +91,41 @@ export const ApiModePanel: React.FC = () => {
       setError('APIの初期化に失敗しました');
     }
   };
+
+  const updateButtonStates = async () => {
+    try {
+      if (isAuthorized) {
+        const states = await window.electronAPI.freeeApi.getTimeClockButtonStates();
+        console.log('Button states updated:', states);
+        setButtonStates(states);
+      }
+    } catch (error) {
+      console.error('Failed to get button states:', error);
+      // エラー時はデフォルト状態を保持
+    }
+  };
+
+  const updateTodayTimeClocks = async () => {
+    try {
+      if (isAuthorized) {
+        const today = new Date().toISOString().split('T')[0];
+        const timeClocks = await window.electronAPI.freeeApi.getTimeClocks(today, today);
+        console.log('Today time clocks:', timeClocks);
+        setTodayTimeClocks(timeClocks);
+      }
+    } catch (error) {
+      console.error('Failed to get today time clocks:', error);
+      setTodayTimeClocks([]);
+    }
+  };
+
+  // 認証後にボタン状態と打刻履歴を更新
+  useEffect(() => {
+    if (isAuthorized) {
+      updateButtonStates();
+      updateTodayTimeClocks();
+    }
+  }, [isAuthorized]);
 
   const handleAuthorize = async () => {
     setLoading(true);
@@ -99,11 +148,9 @@ export const ApiModePanel: React.FC = () => {
     try {
       await window.electronAPI.freeeApi.timeClock(type);
       
-      if (type === 'clock_in') {
-        startWork();
-      } else if (type === 'clock_out') {
-        endWork();
-      }
+      // 打刻後にボタン状態と打刻履歴を更新
+      await updateButtonStates();
+      await updateTodayTimeClocks();
       
       // 勤務記録を更新
       try {
@@ -121,7 +168,7 @@ export const ApiModePanel: React.FC = () => {
 
   if (!isApiInitialized) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50">
+      <div className="h-full flex items-center justify-center bg-blue-50">
         <div className="text-center p-8">
           <h2 className="text-lg font-semibold mb-4">API設定が必要です</h2>
           <p className="text-sm text-gray-600 mb-4">
@@ -144,7 +191,7 @@ export const ApiModePanel: React.FC = () => {
 
   if (!isAuthorized) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50">
+      <div className="h-full flex items-center justify-center bg-blue-50">
         <div className="text-center p-8">
           <h2 className="text-lg font-semibold mb-4">freee認証が必要です</h2>
           <button
@@ -161,59 +208,20 @@ export const ApiModePanel: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
-      <div className="bg-white border-b p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-semibold">freee勤怠管理</h2>
-          <div className="text-lg text-gray-600">
-            {employeeInfo?.display_name}
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-lg text-gray-600">本日の勤務時間:</span>
-          <span className="font-mono font-semibold text-xl">{workingTime}</span>
-          <span className={`w-3 h-3 rounded-full ${isWorking ? 'bg-green-500' : 'bg-gray-400'}`} />
-        </div>
-      </div>
+    <div className="h-full flex flex-col bg-blue-50">
+      <WorkingTimeDisplay
+        employeeInfo={employeeInfo}
+        todayTimeClocks={todayTimeClocks}
+      />
+      <WorkTimeSection
+        loading={loading}
+        buttonStates={buttonStates}
+        onTimeClock={handleTimeClock}
+      />
 
-      <div className="flex-1 flex items-center justify-center p-12">
-        <div className="grid grid-cols-2 gap-6 max-w-2xl w-full">
-          <button
-            onClick={() => handleTimeClock('clock_in')}
-            disabled={loading || isWorking}
-            className="p-8 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <div className="text-4xl mb-3">🏢</div>
-            <div className="font-semibold text-lg">勤務開始</div>
-          </button>
-
-          <button
-            onClick={() => handleTimeClock('clock_out')}
-            disabled={loading || !isWorking}
-            className="p-8 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <div className="text-4xl mb-3">🏠</div>
-            <div className="font-semibold text-lg">勤務終了</div>
-          </button>
-
-          <button
-            onClick={() => handleTimeClock('break_begin')}
-            disabled={loading || !isWorking}
-            className="p-8 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <div className="text-4xl mb-3">☕</div>
-            <div className="font-semibold text-lg">休憩開始</div>
-          </button>
-
-          <button
-            onClick={() => handleTimeClock('break_end')}
-            disabled={loading || !isWorking}
-            className="p-8 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <div className="text-4xl mb-3">💼</div>
-            <div className="font-semibold text-lg">休憩終了</div>
-          </button>
-        </div>
+      {/* 打刻履歴表示 */}
+      <div className="pb-4 px-4">
+        <TimeClockHistory todayTimeClocks={todayTimeClocks} />
       </div>
 
       {error && (
