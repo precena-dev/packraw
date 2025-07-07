@@ -11,9 +11,9 @@ function createWindow() {
   const windowConfig = configManager.getWindowConfig();
   
   mainWindow = new BrowserWindow({
-    width: windowConfig.width,
-    height: windowConfig.height,
-    resizable: false,
+    width: 1200,  // ウィンドウサイズを大きく
+    height: 800,  // ウィンドウサイズを大きく
+    resizable: true,  // リサイズ可能に
     alwaysOnTop: windowConfig.alwaysOnTop,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -36,6 +36,9 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // 開発者ツールをデフォルトで開く
+  mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
@@ -131,6 +134,7 @@ ipcMain.handle('freee-api-init', () => {
       redirectUri: config.api.redirectUri,
       accessToken: config.api.accessToken,
       refreshToken: config.api.refreshToken,
+      refreshTokenExpiresAt: config.api.refreshTokenExpiresAt,
       companyId: config.api.companyId,
       employeeId: config.api.employeeId,
     });
@@ -160,21 +164,50 @@ ipcMain.handle('freee-api-authorize', async () => {
 
 ipcMain.handle('freee-api-get-employee-info', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  const info = await freeeApiService.getEmployeeInfo();
   
-  // 従業員IDを設定ファイルに保存
-  if (info.employee?.id) {
-    configManager.updateConfig({
-      ...configManager.getConfig(),
+  try {
+    const info = await freeeApiService.getEmployeeInfo();
+    
+    // 最新のトークン情報を保存（リフレッシュされた可能性があるため）
+    const apiConfig = freeeApiService.getConfig();
+    const currentConfig = configManager.getConfig();
+    
+    const updatedConfig = {
+      ...currentConfig,
       api: {
-        ...configManager.getConfig().api!,
-        employeeId: info.employee.id,
+        ...currentConfig.api!,
+        accessToken: apiConfig.accessToken,
+        refreshToken: apiConfig.refreshToken,
+        refreshTokenExpiresAt: apiConfig.refreshTokenExpiresAt,
+      }
+    };
+    
+    // 従業員IDを設定ファイルに保存
+    if (info.employee?.id) {
+      updatedConfig.api.employeeId = info.employee.id;
+      freeeApiService.updateConfig({ employeeId: info.employee.id });
+    }
+    
+    configManager.updateConfig(updatedConfig);
+    
+    return info;
+  } catch (error) {
+    // エラーでも最新のトークン情報は保存する
+    const apiConfig = freeeApiService.getConfig();
+    const currentConfig = configManager.getConfig();
+    
+    configManager.updateConfig({
+      ...currentConfig,
+      api: {
+        ...currentConfig.api!,
+        accessToken: apiConfig.accessToken,
+        refreshToken: apiConfig.refreshToken,
+        refreshTokenExpiresAt: apiConfig.refreshTokenExpiresAt,
       }
     });
-    freeeApiService.updateConfig({ employeeId: info.employee.id });
+    
+    throw error;
   }
-  
-  return info;
 });
 
 ipcMain.handle('freee-api-time-clock', async (_event, type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => {
@@ -185,4 +218,9 @@ ipcMain.handle('freee-api-time-clock', async (_event, type: 'clock_in' | 'clock_
 ipcMain.handle('freee-api-get-today-work-record', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
   return await freeeApiService.getTodayWorkRecord();
+});
+
+ipcMain.handle('freee-api-get-companies', async () => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  return await freeeApiService.getCompanies();
 });

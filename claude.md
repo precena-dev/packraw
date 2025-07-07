@@ -9,10 +9,12 @@ freee Desktop Kintai
 freeeの勤怠打刻をデスクトップから素早く行えるようにし、打刻忘れを防ぎ、業務効率を向上させる。
 
 ### 主な機能
-- freeeの打刻画面をWebViewで常駐表示
+- **APIモード**: freee APIを使用したネイティブ打刻機能
+- **WebViewモード**: freeeの打刻画面をWebViewで常駐表示
 - ワンクリックで打刻可能なネイティブボタン
-- ユーザープロファイル別のログイン状態保持
-- リアルタイム勤務時間表示
+- OAuth2.0認証によるセキュアなAPI連携
+- リアルタイム勤務時間表示とデータ取得
+- refreshTokenの90日有効期限管理
 
 ## 技術スタック
 
@@ -21,12 +23,14 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
 - **言語**: TypeScript 5.8.3
 - **UI Framework**: React 19.1.0 + Tailwind CSS 4.1.11
 - **ビルドツール**: Vite 5.4.19
+- **HTTP Client**: axios 1.10.0
 - **開発支援**: concurrently, electron-builder
 
 ### 主要な依存関係
 ```json
 {
   "dependencies": {
+    "axios": "^1.10.0",
     "electron": "^37.2.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
@@ -49,42 +53,53 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
 
 ## 機能要件
 
-### 1. WebView表示機能 ✅実装済み
+### 1. freee API連携機能 ✅実装済み
+- OAuth2.0による認証フロー
+- freee人事労務APIとの統合
+- 打刻API（勤務開始/終了、休憩開始/終了）
+- 勤務記録取得API
+- アクセストークンの自動更新機能
+- refreshTokenの90日有効期限管理
+
+### 2. WebView表示機能 ✅実装済み（従来モード）
 - freeeの打刻画面を`<webview>`タグで表示
 - Cookie/セッション情報の永続化
 - Chromeライクなユーザーエージェント設定
 
-### 2. ネイティブ打刻ボタン ✅実装済み
-- 勤務開始ボタン
-- 勤務終了ボタン
-- 休憩開始ボタン
-- 休憩終了ボタン
-- JavaScript実行による打刻処理
+### 3. ネイティブ打刻ボタン ✅実装済み
+- **APIモード**: freee APIを直接呼び出し
+  - 勤務開始（clock_in）
+  - 勤務終了（clock_out）
+  - 休憩開始（break_begin）
+  - 休憩終了（break_end）
+- **WebViewモード**: JavaScript実行による打刻処理
 
-### 3. 勤務時間表示機能 ✅実装済み
+### 4. 勤務時間表示機能 ✅実装済み
 - 本日の勤務時間をリアルタイム表示
 - 勤務開始からの経過時間を自動更新（1秒ごと）
+- APIモード: freee APIから実際の勤務記録を取得
 - useTimeTracker hookによる状態管理
 
-### 4. ウィンドウ管理 ✅実装済み
+### 5. ウィンドウ管理 ✅実装済み
 - 常に最前面表示（Always on Top）
 - 固定サイズ（500x500px）
 - カスタムタイトルバー
 - 開発者ツールとリロードボタン
 
-### 5. 認証・プロファイル管理 ✅実装済み
-- ユーザープロファイル別のセッション管理
+### 6. 認証・プロファイル管理 ✅実装済み
+- **APIモード**: OAuth2.0認証によるセキュアなAPI連携
+- **WebViewモード**: ユーザープロファイル別のセッション管理
 - 設定ファイル（config.json）による動的プロファイル設定
 - 永続化パーティションによるログイン状態保持
 
 ## 設定ファイル管理
 
-### config.json構造
+### config.json構造（APIモード対応）
 ```json
 {
   "user": {
-    "email": "ken.kobayashi@precena.com",
-    "profile": "ken.kobayashi@precena.com"
+    "email": "user@example.com",
+    "profile": "user@example.com"
   },
   "app": {
     "window": {
@@ -95,18 +110,82 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
     "freee": {
       "url": "https://p.secure.freee.co.jp/#"
     }
+  },
+  "api": {
+    "clientId": "YOUR_CLIENT_ID",
+    "clientSecret": "YOUR_CLIENT_SECRET",
+    "redirectUri": "http://localhost:3000/callback",
+    "companyId": 12345,
+    "employeeId": 67890,
+    "accessToken": "AUTO_GENERATED",
+    "refreshToken": "AUTO_GENERATED",
+    "refreshTokenExpiresAt": "2025-04-01T00:00:00.000Z"
   }
 }
 ```
 
+### 動作モード切り替え
+- **APIモード**: `config.json`に`api`設定がある場合
+- **WebViewモード**: `api`設定がない場合（従来の動作）
+
 ### マルチユーザー対応
 - `config.json`の`user.profile`を変更することで異なるユーザーで利用可能
 - パーティション名: `persist:freee-{user.profile}`
-- 各ユーザーのログイン状態が独立して保持される
+- 各ユーザーのログイン状態とAPIトークンが独立して保持される
+
+## freee API認証設定
+
+### 1. freee開発者アカウントでのアプリケーション作成
+1. [freee Developers](https://developer.freee.co.jp/)にアクセス
+2. 「新規アプリケーション作成」
+3. 必要な情報を入力：
+   - アプリケーション名: "freee Desktop Kintai"
+   - 利用API: 「人事労務API」
+   - リダイレクトURI: `http://localhost:3000/callback`
+   - スコープ: 
+     - `hr:employees:me:read`
+     - `hr:employees:me:time_clocks:write`
+     - `hr:employees:me:work_records:read`
+
+### 2. 取得した認証情報の設定
+```json
+{
+  "api": {
+    "clientId": "取得したClient ID",
+    "clientSecret": "取得したClient Secret",
+    "redirectUri": "http://localhost:3000/callback",
+    "companyId": 事業所ID
+  }
+}
+```
+
+### 3. トークン有効期限
+- **アクセストークン**: 6時間（21,600秒）
+- **リフレッシュトークン**: 90日間
+- アプリケーションが自動的にトークンを更新・管理
 
 ## UI/UXデザイン
 
-### 実装済みレイアウト
+### APIモードレイアウト
+```
+┌─────────────────────────────────┐
+│  freee勤怠管理    user@xxx.com  │ (500x500px)
+├─────────────────────────────────┤
+│  本日の勤務時間: 08:30:45 🟢    │
+├─────────────────────────────────┤
+│                                 │
+│         [🏢 勤務開始]           │
+│         [🏠 勤務終了]           │
+│                                 │
+│         [☕ 休憩開始]           │
+│         [💼 休憩終了]           │
+│                                 │
+├─────────────────────────────────┤
+│  ステータス: 認証済み           │
+└─────────────────────────────────┘
+```
+
+### WebViewモードレイアウト（従来）
 ```
 ┌─────────────────────────────────┐
 │  freee打刻    🔧 🔄            │ (500x500px)
@@ -124,25 +203,23 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
 └─────────────────────────────────┘
 ```
 
-### ウィンドウ仕様
-- サイズ: 500x500px（設定ファイルで変更可能）
-- 表示: 常に最前面（設定ファイルで変更可能）
-- フレーム: hiddenInsetスタイル
-- ボタン: 開発者ツール、リロード
-
 ## ディレクトリ構成
 
 ```
 freee-webview-app/
-├── config.json            # ユーザー設定ファイル
+├── config.json            # ユーザー設定ファイル（.gitignoreに含む）
+├── config.sample.json     # 設定ファイルテンプレート
+├── .vscode/
+│   └── settings.json      # VS Code設定（スペルチェック等）
 ├── src/
 │   ├── main/              # Electronメインプロセス
 │   │   ├── index.ts       # メインエントリーポイント
-│   │   ├── auth.ts        # 認証管理（未使用）
-│   │   └── config.ts      # 設定ファイル管理
+│   │   ├── config.ts      # 設定ファイル管理
+│   │   └── freeeApi.ts    # freee API連携サービス
 │   ├── renderer/          # レンダラープロセス（React）
 │   │   ├── App.tsx        # メインアプリコンポーネント
 │   │   ├── components/
+│   │   │   ├── ApiModePanel.tsx    # APIモード用UI
 │   │   │   ├── WebView.tsx         # WebView表示
 │   │   │   ├── ControlPanel.tsx    # 打刻ボタンパネル
 │   │   │   ├── WorkingTimeDisplay.tsx # 勤務時間表示
@@ -188,94 +265,132 @@ freee-webview-app/
    - ConfigManagerクラス
    - マルチユーザー対応
 
-### Phase 2: 打刻機能実装 🚧進行中
-1. WebView内でのJavaScript実行
-2. 4つの打刻ボタンの実装
-3. 打刻結果のフィードバック
+### Phase 2: freee API連携機能 ✅完了
+1. **OAuth2.0認証** ✅
+   - freee開発者アカウント連携
+   - 認証フロー実装
+   - トークン管理
 
-### Phase 3: 勤務時間機能 ✅部分実装
+2. **API連携サービス** ✅
+   - FreeeApiServiceクラス
+   - 打刻API連携
+   - 勤務記録取得API
+
+3. **トークン管理** ✅
+   - アクセストークン自動更新
+   - refreshToken 90日有効期限管理
+   - 期限切れ時の再認証フロー
+
+4. **ネイティブUI** ✅
+   - ApiModePanelコンポーネント
+   - 動作モード自動切り替え
+   - エラーハンドリング
+
+### Phase 3: 勤務時間機能 ✅完了
 1. 勤務時間計測ロジック ✅
 2. リアルタイム表示 ✅
-3. データの永続化 🚧
+3. API連携による実データ取得 ✅
 
-### Phase 4: 改善と配布準備
-1. エラーハンドリング
-2. 自動アップデート機能
-3. インストーラー作成
+### Phase 4: 最適化・改善 🚧進行中
+1. エラーハンドリングの強化
+2. ユーザビリティ向上
+3. 自動アップデート機能
+4. インストーラー作成
 
 ## 実装例
 
-### 設定管理 (main/config.ts)
+### freee API認証フロー (main/freeeApi.ts)
 ```typescript
-export class ConfigManager {
-  private config: AppConfig = defaultConfig;
-  private configPath: string;
+export class FreeeApiService {
+  private config: FreeeConfig;
 
-  getPartitionName(): string {
-    return `persist:freee-${this.config.user.profile}`;
+  async authorize(): Promise<string> {
+    const authUrl = this.getAuthorizationUrl();
+    // OAuth認証ウィンドウを開く
+    const authWindow = new BrowserWindow({...});
+    // 認証コードを取得してトークンに交換
+    await this.exchangeCodeForToken(code);
+    // 90日後の有効期限を設定
+    this.config.refreshTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
   }
 
-  getFreeeUrl(): string {
-    return this.config.app.freee.url;
-  }
-
-  getWindowConfig() {
-    return this.config.app.window;
+  async timeClock(type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end'): Promise<any> {
+    const response = await this.axiosInstance.post(
+      `/hr/api/v1/employees/${this.config.employeeId}/time_clocks`,
+      {
+        company_id: this.config.companyId,
+        type,
+        base_date: new Date().toISOString().split('T')[0],
+        datetime: new Date().toISOString(),
+      }
+    );
+    return response.data;
   }
 }
 ```
 
-### WebView動的設定 (renderer/components/WebView.tsx)
+### APIモード用UIコンポーネント (renderer/components/ApiModePanel.tsx)
 ```typescript
-export const WebView = forwardRef<WebViewHandle, WebViewProps>(({ onReady }, ref) => {
-  const [config, setConfig] = useState<any>(null);
+export const ApiModePanel: React.FC = () => {
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const { workingTime, isWorking, startWork, endWork } = useTimeTracker();
 
-  useEffect(() => {
-    window.electronAPI.getConfig().then(setConfig);
-  }, []);
-
-  const partitionName = `persist:freee-${config.user.profile}`;
-
-  return (
-    <webview
-      ref={webviewRef}
-      className="w-full h-full"
-      partition={partitionName}
-      webpreferences="contextIsolation=false"
-    />
-  );
-});
-```
-
-### 打刻処理実装
-```typescript
-const handleClockIn = (type: 'start' | 'end' | 'break-start' | 'break-end') => {
-  if (!webviewRef.current) return;
-
-  const scripts = {
-    'start': `document.querySelector('[data-action="clock_in"]')?.click()`,
-    'end': `document.querySelector('[data-action="clock_out"]')?.click()`,
-    'break-start': `document.querySelector('[data-action="break_begin"]')?.click()`,
-    'break-end': `document.querySelector('[data-action="break_end"]')?.click()`
+  const handleTimeClock = async (type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => {
+    await window.electronAPI.freeeApi.timeClock(type);
+    if (type === 'clock_in') startWork();
+    else if (type === 'clock_out') endWork();
   };
 
-  webviewRef.current.executeJavaScript(scripts[type])
-    .then(() => {
-      if (type === 'start') startWork();
-      else if (type === 'end') endWork();
-    })
-    .catch(console.error);
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <button onClick={() => handleTimeClock('clock_in')}>
+        勤務開始
+      </button>
+      {/* その他のボタン */}
+    </div>
+  );
 };
+```
+
+### 動作モード自動切り替え (renderer/App.tsx)
+```typescript
+function App() {
+  const [useApiMode, setUseApiMode] = useState(false);
+
+  useEffect(() => {
+    window.electronAPI.getConfig().then(config => {
+      if (config.api) {
+        setUseApiMode(true);
+      }
+    });
+  }, []);
+
+  if (useApiMode) {
+    return <ApiModePanel />;
+  }
+
+  return (
+    // WebViewモードのUI
+  );
+}
 ```
 
 ## セキュリティ考慮事項
 
 ### 実装済みセキュリティ機能
+- OAuth2.0による認証
+- アクセストークンの6時間有効期限
+- refreshTokenの90日有効期限管理
+- Client Secretの設定ファイル分離（.gitignoreに追加）
 - contextIsolation: true（メインプロセス）
 - nodeIntegration: false
 - webviewTag サンドボックス化
 - 永続化パーティションによる認証情報隔離
-- Chromeライクなセキュリティポリシー
+
+### セキュリティ推奨事項
+- config.jsonをバージョン管理から除外
+- 本番環境では環境変数を使用してClient Secretを管理
+- 定期的なrefreshTokenの更新確認
 
 ## 開発コマンド
 
@@ -290,35 +405,106 @@ npm run build
 npm run dist:mac
 npm run dist:win
 npm run dist:linux
+
+# TypeScript型チェック
+npx tsc --noEmit
 ```
 
 ## 使用方法
 
-### 初回セットアップ
-1. `config.json`でユーザープロファイルを設定
-2. `npm run dev`で開発サーバー起動
-3. WebView内でfreeeにログイン
+### 初回セットアップ（APIモード）
 
-### マルチユーザー設定
-```json
-{
-  "user": {
-    "email": "your.email@company.com",
-    "profile": "your.email@company.com"
-  }
-}
-```
+1. **freee開発者アカウントでアプリケーション作成**
+   - [freee Developers](https://developer.freee.co.jp/)でアプリ登録
+   - Client IDとClient Secretを取得
+
+2. **設定ファイル作成**
+   ```bash
+   cp config.sample.json config.json
+   ```
+
+3. **認証情報設定**
+   ```json
+   {
+     "api": {
+       "clientId": "YOUR_CLIENT_ID",
+       "clientSecret": "YOUR_CLIENT_SECRET",
+       "redirectUri": "http://localhost:3000/callback",
+       "companyId": YOUR_COMPANY_ID
+     }
+   }
+   ```
+
+4. **アプリケーション起動**
+   ```bash
+   npm run dev
+   ```
+
+5. **freee認証**
+   - 「freeeにログイン」ボタンをクリック
+   - freeeの認証画面で許可
+   - 自動的に従業員情報とトークンが保存される
+
+### 初回セットアップ（WebViewモード）
+
+1. **設定ファイル作成**
+   ```bash
+   cp config.sample.json config.json
+   ```
+
+2. **api設定を削除またはコメントアウト**
+   ```json
+   {
+     "user": {
+       "email": "your.email@company.com",
+       "profile": "your.email@company.com"
+     }
+   }
+   ```
+
+3. **アプリケーション起動**
+   ```bash
+   npm run dev
+   ```
+
+4. **WebView内でfreeeにログイン**
 
 ### 操作方法
+
+#### APIモード
+- 4つの打刻ボタンで直接API経由で打刻
+- リアルタイム勤務時間表示
+- 認証状態とrefreshToken期限の表示
+
+#### WebViewモード
 - 右上の🔧ボタン: WebView開発者ツール
 - 右上の🔄ボタン: WebView再読み込み
-- 下部の4つのボタン: 各種打刻操作
+- 下部の4つのボタン: JavaScript経由での打刻操作
+
+## トラブルシューティング
+
+### よくある問題
+
+1. **「API service not initialized」エラー**
+   - config.jsonのapi設定を確認
+   - Client IDとClient Secretが正しく設定されているか確認
+
+2. **「リフレッシュトークンの有効期限が切れています」エラー**
+   - 90日以上経過している場合は再認証が必要
+   - 「freeeにログイン」ボタンで再認証
+
+3. **打刻が失敗する**
+   - 事業所ID（companyId）が正しく設定されているか確認
+   - 従業員IDが正しく取得されているか確認
+   - freee側の勤怠設定を確認
 
 ## 今後の拡張案
 
 ### 追加機能候補
+- refreshToken期限の3日前からの警告通知
 - 打刻リマインダー通知
 - 月次勤務時間レポート
 - ショートカットキー対応
 - 設定UI画面
 - 複数アカウント同時利用
+- freee以外の勤怠システムとの連携
