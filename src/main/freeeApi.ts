@@ -307,7 +307,7 @@ export class FreeeApiService {
   // リフレッシュトークンの残り有効日数を取得
   async getCompanies(): Promise<any> {
     console.log('Getting companies list...');
-    const response = await this.axiosInstance.get('/api/v1/companies');
+    const response = await this.axiosInstance.get('/api/1/companies');
     console.log('Companies response:', response.data);
     return response.data;
   }

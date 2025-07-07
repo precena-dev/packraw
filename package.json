@@ -14,7 +14,12 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
-    "test:api": "tsc -p tsconfig.test.json && node dist-test/test-freee-api.js"
+    "test:api": "tsc -p tsconfig.test.json && node dist-test/test-freee-api.js",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "test:real": "TEST_REAL_API=true vitest",
+    "test:integration": "TEST_REAL_API=true vitest src/test/freeeApi.integration.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -39,6 +44,8 @@
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
     "vite": "^5.4.19",
+    "vitest": "^2.1.8",
+    "@vitest/coverage-v8": "^2.1.8",
     "wait-on": "^8.0.3"
   }
 }
