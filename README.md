@@ -48,7 +48,7 @@
    cp config.precena.json ~/Library/Application\ Support/PackRaw/freee-app-config.json
    ```
    ※ アプリケーションを一度起動すると自動的にディレクトリが作成されます。が初回はconfigがないのでエラーになります。先に入れといたほうが良いかもです。
-   ※ プレセナ用の設定ファイル(config.precena.json)は[ダウンロードページ]()のmacOSフォルダにあります。
+   ※ プレセナ用の設定ファイル(config.precena.json)は[ダウンロードページ](https://drive.google.com/drive/folders/1iSum8GMah5t5AZS-wMM0aTwhjhRrjDc2)のmacOSフォルダにあります。
 
 #### Windows
 1. ダウンロードした`PackRaw-<version>-win.zip`を任意のフォルダに解凍
