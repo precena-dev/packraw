@@ -92,7 +92,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </li>
               </ul>
               <p className="setting-detail-note">
-                ※ 現在はテスト用にコンソールログのみ出力されます
+                ※ 実際のfreee APIを使用して自動打刻を実行します
               </p>
             </div>
           </div>

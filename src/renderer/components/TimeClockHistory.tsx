@@ -35,82 +35,65 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
   }
 
   return (
-    <div className="history-container">
-      <div className="history-tables">
-        {/* 勤務開始終了セクション */}
-        <div className="history-table-section">
-          <div className="history-table-wrapper">
-            <table className="history-table">
-              <thead>
-                <tr>
-                  <th>出勤</th>
-                  <th>退勤</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>
-                    {clockIn ? (
-                      <span className="status-badge clock-in">
-                        {formatTime(clockIn.datetime)}
-                      </span>
-                    ) : (
-                      <span className="empty-text">未打刻</span>
-                    )}
-                  </td>
-                  <td>
-                    {clockOut ? (
-                      <span className="status-badge clock-out">
-                        {formatTime(clockOut.datetime)}
-                      </span>
-                    ) : (
-                      <span className="empty-text">未打刻</span>
-                    )}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+    <div className="time-table">
+      <div className="time-row">
+        <div className="time-label-row">
+          <svg className="time-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          出勤
         </div>
+        <div className={`time-value ${!clockIn ? 'empty' : ''}`}>
+          {clockIn ? formatTime(clockIn.datetime) : '--:--'}
+        </div>
+      </div>
+      
+      <div className="time-row">
+        <div className="time-label-row">
+          <svg className="time-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          退勤
+        </div>
+        <div className={`time-value ${!clockOut ? 'empty' : ''}`}>
+          {clockOut ? formatTime(clockOut.datetime) : '--:--'}
+        </div>
+      </div>
 
-        {/* 休憩セクション */}
-        <div className="history-table-section">
-          <div className="history-table-wrapper">
-            <table className="history-table">
-              <thead>
-                <tr>
-                  <th className="number-column">No</th>
-                  <th>開始</th>
-                  <th>終了</th>
-                </tr>
-              </thead>
-              <tbody>
-                {breakSessions.map((session) => (
-                  <tr key={session.no}>
-                    <td>
-                      <span className="status-badge number">
-                        {session.no}
+      <div className="break-section">
+        <div className="break-header">
+          <svg className="time-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12"></polyline>
+          </svg>
+          <span>休憩履歴</span>
+        </div>
+        <div className="break-list">
+          {breakSessions.length > 0 && breakSessions.some(s => s.begin || s.end) ? (
+            breakSessions.map((session) => (
+              session.begin || session.end ? (
+                <div key={session.no} className="break-item">
+                  <div className="break-times">
+                    <span>{session.begin ? formatTime(session.begin.datetime) : '--:--'}</span>
+                    <span className="break-arrow">→</span>
+                    <span>{session.end ? formatTime(session.end.datetime) : '休憩中...'}</span>
+                    {session.begin && session.end && (
+                      <span className="break-duration">
+                        ({Math.floor((new Date(session.end.datetime).getTime() - new Date(session.begin.datetime).getTime()) / 60000)}分)
                       </span>
-                    </td>
-                    <td>
-                      {session.begin ? (
-                        <span className="time-text">{formatTime(session.begin.datetime)}</span>
-                      ) : (
-                        <span className="empty-text">--:--</span>
-                      )}
-                    </td>
-                    <td>
-                      {session.end ? (
-                        <span className="time-text">{formatTime(session.end.datetime)}</span>
-                      ) : (
-                        <span className="empty-text">--:--</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    )}
+                  </div>
+                </div>
+              ) : null
+            ))
+          ) : (
+            <div className="break-empty">
+              休憩記録なし
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -46,8 +46,8 @@ export class PowerMonitorService {
     powerMonitor.on('suspend', async () => {
       console.log('System suspend detected - starting break');
       try {
-        // await this.freeeApiService!.timeClock('break_begin');
-        console.log('Break started successfully due to system suspend (API call disabled for testing)');
+        await this.freeeApiService!.timeClock('break_begin');
+        console.log('Break started successfully due to system suspend');
       } catch (error) {
         console.error('Failed to start break on system suspend:', error);
       }
@@ -57,8 +57,8 @@ export class PowerMonitorService {
     powerMonitor.on('resume', async () => {
       console.log('System resume detected - ending break');
       try {
-        // await this.freeeApiService!.timeClock('break_end');
-        console.log('Break ended successfully due to system resume (API call disabled for testing)');
+        await this.freeeApiService!.timeClock('break_end');
+        console.log('Break ended successfully due to system resume');
       } catch (error) {
         console.error('Failed to end break on system resume:', error);
       }
@@ -68,8 +68,8 @@ export class PowerMonitorService {
     powerMonitor.on('lock-screen', async () => {
       console.log('Screen lock detected - starting break');
       try {
-        // await this.freeeApiService!.timeClock('break_begin');
-        console.log('Break started successfully due to screen lock (API call disabled for testing)');
+        await this.freeeApiService!.timeClock('break_begin');
+        console.log('Break started successfully due to screen lock');
       } catch (error) {
         console.error('Failed to start break on screen lock:', error);
       }
@@ -79,8 +79,8 @@ export class PowerMonitorService {
     powerMonitor.on('unlock-screen', async () => {
       console.log('Screen unlock detected - ending break');
       try {
-        // await this.freeeApiService!.timeClock('break_end');
-        console.log('Break ended successfully due to screen unlock (API call disabled for testing)');
+        await this.freeeApiService!.timeClock('break_end');
+        console.log('Break ended successfully due to screen unlock');
       } catch (error) {
         console.error('Failed to end break on screen unlock:', error);
       }

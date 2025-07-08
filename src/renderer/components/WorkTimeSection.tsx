@@ -19,20 +19,6 @@ export const WorkTimeSection: React.FC<WorkTimeSectionProps> = ({
   onTimeClock
 }) => {
 
-  const getButtonClassName = (isDisabled: boolean, buttonType: string) => {
-    if (isDisabled) {
-      return 'work-button work-button--disabled';
-    }
-    
-    switch (buttonType) {
-      case 'clock_in':
-        return 'work-button work-button--green';
-      case 'clock_out':
-        return 'work-button work-button--red';
-      default:
-        return 'work-button work-button--blue';
-    }
-  };
 
   const LoadingSpinner = () => (
     <div className="loading-spinner">
@@ -41,56 +27,57 @@ export const WorkTimeSection: React.FC<WorkTimeSectionProps> = ({
   );
 
   return (
-    <div className="flex items-center justify-center px-4 py-2">
-      <div className="button-container">
-        {/* 勤務開始終了ボタン列 */}
-        <div className="button-column">
-          <h3 className="text-sm font-medium flex items-center">
-            💼 出勤・退勤
-          </h3>
-          <button
-            onClick={() => onTimeClock('clock_in')}
-            disabled={loading || !buttonStates.clockIn}
-            className={getButtonClassName(loading || !buttonStates.clockIn, 'clock_in')}
-          >
-            {loading && <LoadingSpinner />}
-            <div className="button-text">出勤</div>
-          </button>
+    <div className="control-panel">
+      <button
+        onClick={() => onTimeClock('clock_in')}
+        disabled={loading || !buttonStates.clockIn}
+        className={`clock-button ${!buttonStates.clockIn ? 'disabled' : 'btn-start'}`}
+      >
+        {loading && <LoadingSpinner />}
+        <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        勤務開始
+      </button>
 
-          <button
-            onClick={() => onTimeClock('clock_out')}
-            disabled={loading || !buttonStates.clockOut}
-            className={getButtonClassName(loading || !buttonStates.clockOut, 'clock_out')}
-          >
-            {loading && <LoadingSpinner />}
-            <div className="button-text">退勤</div>
-          </button>
-        </div>
+      <button
+        onClick={() => onTimeClock('clock_out')}
+        disabled={loading || !buttonStates.clockOut}
+        className={`clock-button ${!buttonStates.clockOut ? 'disabled' : 'btn-end'}`}
+      >
+        {loading && <LoadingSpinner />}
+        <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        勤務終了
+      </button>
 
-        {/* 休憩開始終了ボタン列 */}
-        <div className="button-column">
-          <h3 className="text-sm font-medium flex items-center">
-            ☕ 休憩
-          </h3>
-          <button
-            onClick={() => onTimeClock('break_begin')}
-            disabled={loading || !buttonStates.breakBegin}
-            className={getButtonClassName(loading || !buttonStates.breakBegin, 'break_begin')}
-          >
-            {loading && <LoadingSpinner />}
-            <div className="button-text">休憩開始</div>
-          </button>
+      <button
+        onClick={() => onTimeClock('break_begin')}
+        disabled={loading || !buttonStates.breakBegin}
+        className={`clock-button ${!buttonStates.breakBegin ? 'disabled' : 'btn-break-start'}`}
+      >
+        {loading && <LoadingSpinner />}
+        <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="6" y="4" width="4" height="16"></rect>
+          <rect x="14" y="4" width="4" height="16"></rect>
+        </svg>
+        休憩開始
+      </button>
 
-          <button
-            onClick={() => onTimeClock('break_end')}
-            disabled={loading || !buttonStates.breakEnd}
-            className={getButtonClassName(loading || !buttonStates.breakEnd, 'break_end')}
-          >
-            {loading && <LoadingSpinner />}
-            <div className="button-text">休憩終了</div>
-          </button>
-        </div>
-      </div>
+      <button
+        onClick={() => onTimeClock('break_end')}
+        disabled={loading || !buttonStates.breakEnd}
+        className={`clock-button ${!buttonStates.breakEnd ? 'disabled' : 'btn-break-end'}`}
+      >
+        {loading && <LoadingSpinner />}
+        <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        休憩終了
+      </button>
     </div>
   );
 };

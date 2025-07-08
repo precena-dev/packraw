@@ -115,42 +115,52 @@ export const WorkingTimeDisplay: React.FC<WorkingTimeDisplayProps> = ({
 
 
   return (
-    <div className="bg-white border-b p-3" style={{ WebkitAppRegion: 'drag' } as any}>
-      <div className="flex items-center justify-end mb-2">
-        <div className="text-lg text-gray-600 employee-name">
-          {employeeInfo?.display_name}
+    <div>
+      {/* Title Bar */}
+      <div className="title-bar" style={{ WebkitAppRegion: 'drag' } as any}>
+        <div></div>
+        <div className="user-info-right">
+          <span className="user-name">{employeeInfo?.display_name}</span>
         </div>
       </div>
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <span className="text-lg text-gray-600 working-time-display">
-            （勤務時間：{calculatedWorkingTime}）
-          </span>
-        </div>
-        <div className="date-nav-container">
-          <button
+
+      {/* Working Time Section */}
+      <div className="working-time">
+        <div className="date-navigation">
+          <button 
+            className="nav-button" 
             onClick={() => onDateChange('prev')}
-            className="date-nav-button"
             style={{ WebkitAppRegion: 'no-drag' } as any}
           >
-            <span className="date-nav-button-icon">‹</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
           </button>
-          <span style={{ fontSize: '24px', fontWeight: '600', color: '#1f2937', whiteSpace: 'nowrap' }}>
-            {formatSelectedDate()}
-          </span>
+          <div className="date-info">
+            <div className="date-label">
+              <span>{formatSelectedDate()}の勤務時間</span>
+              {isToday && <span className="today-indicator">今日</span>}
+            </div>
+            <div className="time-display">{calculatedWorkingTime}</div>
+          </div>
           {!isToday ? (
-            <button
+            <button 
+              className="nav-button" 
               onClick={() => onDateChange('next')}
-              className="date-nav-button"
               style={{ WebkitAppRegion: 'no-drag' } as any}
             >
-              <span className="date-nav-button-icon">›</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
             </button>
           ) : (
-            <div className="w-7 h-7">{/* 今日の場合はスペースを確保 */}</div>
+            <button className="nav-button" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
           )}
         </div>
-        <div className="flex-1"></div>
       </div>
     </div>
   );

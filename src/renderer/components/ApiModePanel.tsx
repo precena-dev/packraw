@@ -313,7 +313,7 @@ export const ApiModePanel: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-blue-50">
+    <div className="app-window">
       <div className="relative">
         <WorkingTimeDisplay
           employeeInfo={employeeInfo}
@@ -325,13 +325,17 @@ export const ApiModePanel: React.FC = () => {
         {/* 設定ボタン */}
         <button
           onClick={() => setIsSettingsModalOpen(true)}
-          className="settings-button"
+          className="settings-button-overlay"
           title="設定"
           style={{ WebkitAppRegion: 'no-drag' } as any}
         >
-          <span className="settings-icon">⚙️</span>
+          <svg className="settings-icon" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
         </button>
       </div>
+      
       {isToday && (
         <WorkTimeSection
           loading={loading}
@@ -340,15 +344,11 @@ export const ApiModePanel: React.FC = () => {
         />
       )}
 
-
-      {/* 打刻履歴表示 */}
-      <div className="pb-4 px-4">
-        <TimeClockHistory todayTimeClocks={todayTimeClocks} />
-      </div>
+      <TimeClockHistory todayTimeClocks={todayTimeClocks} />
 
       {error && (
-        <div className="p-4 bg-red-50 border-t border-red-200">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="error-message">
+          <p>{error}</p>
         </div>
       )}
 
