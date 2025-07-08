@@ -9,6 +9,7 @@ dist/
 dist*/
 out/
 build/
+assets/
 
 # IDE files
 .vscode/

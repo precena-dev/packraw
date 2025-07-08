@@ -14,6 +14,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onTogglePowerMonitor
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [configPath, setConfigPath] = useState<string>('');
+
+  // 設定ファイルパスを取得
+  useEffect(() => {
+    if (isOpen) {
+      window.electronAPI.getConfigPath().then(path => {
+        setConfigPath(path);
+      });
+    }
+  }, [isOpen]);
 
   // ESCキーでモーダルを閉じる
   useEffect(() => {
@@ -41,6 +51,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+
   if (!isOpen) return null;
 
   return (
@@ -53,15 +64,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* コンテンツ */}
         <div className="modal-body">
+
           <div className="setting-section">
             <h3 className="setting-section-title">自動休憩機能</h3>
             <div className="setting-item">
               <div className="setting-item-content">
                 <div className="setting-item-label">
                   <span className="setting-item-name">自動休憩モード</span>
-                  <p className="setting-item-description">
-                    画面ロックやシステムサスペンド時に自動で休憩開始/終了の打刻を行います
-                  </p>
                 </div>
                 <div className="setting-item-control">
                   <button
@@ -85,16 +94,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <h4 className="setting-detail-title">自動休憩のトリガー</h4>
               <ul className="setting-detail-list">
                 <li>
-                  <strong>休憩開始:</strong> 画面ロック時、システムサスペンド時
+                  <strong>休憩開始:</strong> 画面ロック/システムサスペンド時
                 </li>
                 <li>
-                  <strong>休憩終了:</strong> 画面アンロック時、システムレジューム時
+                  <strong>休憩終了:</strong> 画面アンロック/システムレジューム時
                 </li>
               </ul>
-              <p className="setting-detail-note">
-                ※ 実際のfreee APIを使用して自動打刻を実行します
-              </p>
             </div>
+          </div>
+
+          {/* 設定ファイル情報 */}
+          <div className="setting-section">
+            <h3 className="setting-section-title">設定ファイル情報</h3>
+            <div className="setting-item">
+              <div className="setting-item-content">
+                <div className="setting-item-label">
+                  <span className="setting-item-name">保存場所</span>
+                  <p className="setting-item-description">
+                    electron-storeによりローカルに永続化されます
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {configPath && (
+              <div className="setting-detail">
+                <h4 className="setting-detail-title">ファイルパス</h4>
+                <p className="setting-detail-note" style={{ wordBreak: 'break-all', fontSize: '11px' }}>
+                  {configPath}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

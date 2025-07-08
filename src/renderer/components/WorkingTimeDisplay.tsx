@@ -41,19 +41,7 @@ export const WorkingTimeDisplay: React.FC<WorkingTimeDisplayProps> = ({
     let totalWorkingMs = endTime.getTime() - startTime.getTime();
     
     // 休憩時間を計算して除外
-    const breakBegins = todayTimeClocks.filter(tc => tc.type === 'break_begin').sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
-    const breakEnds = todayTimeClocks.filter(tc => tc.type === 'break_end').sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
-    
-    let totalBreakMs = 0;
-    
-    for (let i = 0; i < breakBegins.length; i++) {
-      const breakStart = new Date(breakBegins[i].datetime);
-      const breakEnd = breakEnds[i] ? new Date(breakEnds[i].datetime) : (!clockOut ? new Date() : null);
-      
-      if (breakEnd) {
-        totalBreakMs += breakEnd.getTime() - breakStart.getTime();
-      }
-    }
+    let totalBreakMs = calculateTotalBreakDuration();
     
     // 実際の勤務時間 = 総勤務時間 - 休憩時間
     const actualWorkingMs = Math.max(0, totalWorkingMs - totalBreakMs);
@@ -68,6 +56,24 @@ export const WorkingTimeDisplay: React.FC<WorkingTimeDisplayProps> = ({
     const isWorking = !clockOut && clockIn;
     
     return { workingTime, isWorking };
+
+    // 総休憩時間(ミリ秒):AIにロジック考えてもらった。
+    function calculateTotalBreakDuration() {
+      const breakBegins = todayTimeClocks.filter(tc => tc.type === 'break_begin').sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+      const breakEnds = todayTimeClocks.filter(tc => tc.type === 'break_end').sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+
+      let totalBreakMs = 0;
+
+      for (let i = 0; i < breakBegins.length; i++) {
+        const breakStart = new Date(breakBegins[i].datetime);
+        const breakEnd = breakEnds[i] ? new Date(breakEnds[i].datetime) : (!clockOut ? new Date() : null);
+
+        if (breakEnd) {
+          totalBreakMs += breakEnd.getTime() - breakStart.getTime();
+        }
+      }
+      return totalBreakMs;
+    }
   };
 
   // 1分ごとに勤務時間を更新

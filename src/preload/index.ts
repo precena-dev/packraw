@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVersion: () => ipcRenderer.invoke('get-version'),
   getConfig: () => ipcRenderer.invoke('get-config'),
   updateConfig: (newConfig: any) => ipcRenderer.invoke('update-config', newConfig),
+  getConfigPath: () => ipcRenderer.invoke('get-config-path'),
+  setApiConfig: (apiConfig: any) => ipcRenderer.invoke('set-api-config', apiConfig),
   
   // freee API
   freeeApi: {
@@ -24,5 +26,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     start: () => ipcRenderer.invoke('powerMonitor:start'),
     stop: () => ipcRenderer.invoke('powerMonitor:stop'),
     isMonitoring: () => ipcRenderer.invoke('powerMonitor:isMonitoring'),
+    onEvent: (callback: (eventType: string) => void) => {
+      ipcRenderer.on('power-monitor-event', (_, eventType) => callback(eventType));
+    },
+    removeAllListeners: () => {
+      ipcRenderer.removeAllListeners('power-monitor-event');
+    }
   }
 });

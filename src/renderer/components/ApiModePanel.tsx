@@ -174,19 +174,22 @@ export const ApiModePanel: React.FC = () => {
     }
   }, [isAuthorized, selectedDate]);
 
-  // PowerMonitor の状態を初期化
+  // PowerMonitor 状態を初期化
   useEffect(() => {
-    const initPowerMonitor = async () => {
+    const initSettings = async () => {
       try {
+        // PowerMonitor状態の初期化
         const isMonitoring = await window.electronAPI.powerMonitor.isMonitoring();
         setIsPowerMonitorEnabled(isMonitoring);
+        console.log('PowerMonitor status initialized:', isMonitoring);
+        
       } catch (error) {
-        console.error('Failed to check PowerMonitor status:', error);
+        console.error('Failed to check settings status:', error);
       }
     };
 
     if (isAuthorized) {
-      initPowerMonitor();
+      initSettings();
     }
   }, [isAuthorized]);
 
@@ -209,6 +212,40 @@ export const ApiModePanel: React.FC = () => {
       clearInterval(interval);
     };
   }, [isAuthorized, isToday, selectedDate]);
+
+  // PowerMonitorイベントの監視
+  useEffect(() => {
+    if (!isAuthorized) {
+      return;
+    }
+
+    const handlePowerMonitorEvent = (eventType: string) => {
+      console.log('PowerMonitor event received:', eventType);
+      
+      // 画面をリフレッシュ（ボタン状態と打刻履歴を更新）
+      updateButtonStates();
+      updateTimeClocks(selectedDate);
+      
+      // 勤務記録も更新
+      if (isToday) {
+        try {
+          window.electronAPI.freeeApi.getTodayWorkRecord().then(record => {
+            console.log('Updated work record after PowerMonitor event:', record);
+          });
+        } catch (error) {
+          console.log('Could not fetch updated work record after PowerMonitor event:', error);
+        }
+      }
+    };
+
+    // PowerMonitorイベントリスナーを設定
+    window.electronAPI.powerMonitor.onEvent(handlePowerMonitorEvent);
+
+    return () => {
+      // クリーンアップ
+      window.electronAPI.powerMonitor.removeAllListeners();
+    };
+  }, [isAuthorized, selectedDate, isToday]);
 
   const handleAuthorize = async () => {
     setLoading(true);
@@ -270,6 +307,7 @@ export const ApiModePanel: React.FC = () => {
       setError('自動休憩機能の切り替えに失敗しました');
     }
   };
+
 
   if (!isApiInitialized) {
     return (

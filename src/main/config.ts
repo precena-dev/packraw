@@ -1,16 +1,17 @@
-import fs from 'fs';
-import path from 'path';
+import Store from 'electron-store';
 
 export interface AppConfig {
-  user: {
-    email: string;
-    profile: string;
-  };
   app: {
     window: {
       width: number;
       height: number;
       alwaysOnTop: boolean;
+    };
+    powerMonitor?: {
+      enabled: boolean;
+    };
+    developer?: {
+      showDevTools: boolean;
     };
   };
   api?: {
@@ -26,61 +27,111 @@ export interface AppConfig {
 }
 
 const defaultConfig: AppConfig = {
-  user: {
-    email: "user@example.com",
-    profile: "user@example.com"
-  },
   app: {
     window: {
       width: 500,
       height: 500,
       alwaysOnTop: true
+    },
+    powerMonitor: {
+      enabled: false
+    },
+    developer: {
+      showDevTools: false
     }
   }
 };
 
 export class ConfigManager {
-  private config: AppConfig = defaultConfig;
-  private configPath: string;
+  private store: Store<AppConfig>;
 
   constructor() {
-    this.configPath = path.join(process.cwd(), 'config.json');
-    this.loadConfig();
-  }
-
-  private loadConfig(): void {
-    try {
-      if (fs.existsSync(this.configPath)) {
-        const configData = fs.readFileSync(this.configPath, 'utf-8');
-        this.config = { ...defaultConfig, ...JSON.parse(configData) };
-      } else {
-        this.saveConfig();
-      }
-    } catch (error) {
-      console.error('設定ファイル読み込みエラー:', error);
-      this.config = defaultConfig;
-    }
-  }
-
-  private saveConfig(): void {
-    try {
-      fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2));
-    } catch (error) {
-      console.error('設定ファイル保存エラー:', error);
-    }
+    this.store = new Store<AppConfig>({
+      defaults: defaultConfig,
+      name: 'freee-app-config'
+    });
   }
 
   getConfig(): AppConfig {
-    return this.config;
+    return (this.store as any).store as AppConfig;
   }
 
   updateConfig(newConfig: Partial<AppConfig>): void {
-    this.config = { ...this.config, ...newConfig };
-    this.saveConfig();
+    // 深いマージを行う
+    const currentConfig = this.getConfig();
+    const mergedConfig = this.deepMerge(currentConfig, newConfig);
+    
+    // 各プロパティを個別に設定
+    Object.keys(mergedConfig).forEach(key => {
+      (this.store as any).set(key as keyof AppConfig, mergedConfig[key as keyof AppConfig]);
+    });
+  }
+
+  private deepMerge(target: any, source: any): any {
+    const result = { ...target };
+    
+    for (const key in source) {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        result[key] = this.deepMerge(target[key] || {}, source[key]);
+      } else {
+        result[key] = source[key];
+      }
+    }
+    
+    return result;
+  }
+
+  getWindowConfig() {
+    return (this.store as any).get('app.window', defaultConfig.app.window);
+  }
+
+  // 特定のAPIプロパティを取得/設定するヘルパーメソッド
+  getApiConfig() {
+    return (this.store as any).get('api');
+  }
+
+  setApiConfig(apiConfig: AppConfig['api']) {
+    (this.store as any).set('api', apiConfig);
+  }
+
+  // 設定をリセットする
+  resetConfig() {
+    (this.store as any).clear();
+    (this.store as any).store = { ...defaultConfig };
+  }
+
+  // 設定ファイルの場所を取得
+  getConfigPath(): string {
+    return (this.store as any).path;
+  }
+
+  // 初期API設定を手動で設定（開発用）
+  setInitialApiConfig(apiConfig: AppConfig['api']) {
+    console.log('Setting initial API config:', apiConfig);
+    (this.store as any).set('api', apiConfig);
+    console.log('API config set. Current config:', this.getConfig());
+  }
+
+  // PowerMonitor設定を取得
+  getPowerMonitorConfig() {
+    return (this.store as any).get('app.powerMonitor', defaultConfig.app.powerMonitor);
+  }
+
+  // PowerMonitor設定を更新
+  setPowerMonitorEnabled(enabled: boolean) {
+    (this.store as any).set('app.powerMonitor.enabled', enabled);
+    console.log('PowerMonitor enabled set to:', enabled);
   }
 
 
-  getWindowConfig() {
-    return this.config.app.window;
+  // Developer設定を取得
+  getDeveloperConfig() {
+    return (this.store as any).get('app.developer', defaultConfig.app.developer);
+  }
+
+  // Developer設定を更新
+  setShowDevTools(enabled: boolean) {
+    (this.store as any).set('app.developer.showDevTools', enabled);
+    console.log('ShowDevTools enabled set to:', enabled);
   }
 }

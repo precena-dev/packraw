@@ -8,18 +8,14 @@ interface TimeClockButtonState {
 }
 
 interface AppConfig {
-  user: {
-    email: string;
-    profile: string;
-  };
   app: {
     window: {
       width: number;
       height: number;
       alwaysOnTop: boolean;
     };
-    freee: {
-      url: string;
+    powerMonitor?: {
+      enabled: boolean;
     };
   };
   api?: {
@@ -40,6 +36,8 @@ declare global {
       getVersion: () => Promise<string>;
       getConfig: () => Promise<AppConfig>;
       updateConfig: (newConfig: Partial<AppConfig>) => Promise<AppConfig>;
+      getConfigPath: () => Promise<string>;
+      setApiConfig: (apiConfig: AppConfig['api']) => Promise<AppConfig>;
       openAuth: () => Promise<void>;
       setAuthCookies: (cookies: any[]) => Promise<boolean>;
       reloadWebview: () => Promise<void>;
@@ -59,6 +57,8 @@ declare global {
         start: () => Promise<boolean>;
         stop: () => Promise<boolean>;
         isMonitoring: () => Promise<boolean>;
+        onEvent: (callback: (eventType: string) => void) => void;
+        removeAllListeners: () => void;
       };
     };
   }

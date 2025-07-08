@@ -1,13 +1,18 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } from 'electron';
 import path from 'path';
 import { ConfigManager } from './config';
 import { FreeeApiService } from './freeeApi';
 import { PowerMonitorService } from './powerMonitor';
 
+// アプリ名を早期設定（Dockに表示される名前）
+app.setName('PackRaw');
+
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
 const configManager = new ConfigManager();
 let freeeApiService: FreeeApiService | null = null;
 let powerMonitorService: PowerMonitorService | null = null;
+
 
 function createWindow() {
   const windowConfig = configManager.getWindowConfig();
@@ -17,13 +22,19 @@ function createWindow() {
     height: windowConfig.height,
     resizable: true,
     alwaysOnTop: windowConfig.alwaysOnTop,
+    autoHideMenuBar: true,
+    title: 'PackRaw',
+    icon: app.isPackaged 
+      ? path.join(process.resourcesPath, 'app.asar.unpacked', 'assets', 'icon_base.png')
+      : path.join(__dirname, '../../src/images/icon_base.png'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false
     },
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 10, y: 10 }
+    trafficLightPosition: { x: 10, y: 10 },
+    show: true
   });
 
   const isDev = process.argv.includes('--dev');
@@ -38,26 +49,184 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // 開発者ツールをデフォルトで開く
-  mainWindow.webContents.openDevTools();
+  // ウィンドウを閉じた時はトレイに隠す（macOSの慣例）
+  mainWindow.on('close', (event) => {
+    if (process.platform === 'darwin') {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
+
+  // 開発環境または設定で有効にされた場合は開発者ツールを開く
+  const developerConfig = configManager.getDeveloperConfig();
+  if (developerConfig.showDevTools) {
+    mainWindow.webContents.openDevTools();
+  }
 }
 
+function createTray() {
+  // icon_base.pngからトレイアイコンを作成
+  // 開発環境とビルド環境の両方で動作するパス
+  let iconPath: string;
+  if (app.isPackaged) {
+    // パッケージ化された環境: resourcesディレクトリ内のアイコンを使用
+    iconPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'assets', 'icon_base.png');
+  } else {
+    // 開発環境: srcディレクトリ内のアイコンを使用
+    iconPath = path.join(__dirname, '../../src/images/icon_base.png');
+  }
+  
+  const icon = nativeImage.createFromPath(iconPath);
+  
+  // macOS用の16x16アイコンサイズに調整
+  const resizedIcon = icon.resize({ width: 16, height: 16 });
+  resizedIcon.setTemplateImage(true);
+  
+  tray = new Tray(resizedIcon);
+  
+  // トレイメニューを作成
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'ウィンドウを表示',
+      click: () => {
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+          }
+          mainWindow.show();
+          mainWindow.focus();
+        } else {
+          createWindow();
+        }
+      }
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: 'アプリを終了',
+      click: forceQuitApp
+    }
+  ]);
+  
+  tray.setContextMenu(contextMenu);
+  tray.setToolTip('パクロー');
+  
+  // トレイアイコンをクリックした時の動作
+  tray.on('click', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    } else {
+      createWindow();
+    }
+  });
+}
+
+// アプリを強制終了する関数
+function forceQuitApp() {
+  console.log('Force quitting application...');
+  
+  // ウィンドウを明示的に閉じる
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.removeAllListeners('close');
+    mainWindow.close();
+  }
+  
+  // トレイを削除
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
+  
+  // PowerMonitorサービスを停止
+  if (powerMonitorService) {
+    powerMonitorService.stopMonitoring();
+  }
+  
+  // 強制的にアプリを終了
+  app.quit();
+  
+  // 念のため強制終了
+  setTimeout(() => {
+    console.log('Force exiting process...');
+    process.exit(0);
+  }, 1000);
+}
+
+
 app.whenReady().then(() => {
+  // アプリ名を設定（Dockに表示される名前）
+  app.setName('PackRaw');
+  
+  // macOSのDockメニューをカスタマイズ
+  if (process.platform === 'darwin') {
+    const dockMenu = Menu.buildFromTemplate([
+      {
+        label: 'ウィンドウを表示',
+        click: () => {
+          if (mainWindow) {
+            if (mainWindow.isMinimized()) {
+              mainWindow.restore();
+            }
+            mainWindow.show();
+            mainWindow.focus();
+          } else {
+            createWindow();
+          }
+        }
+      },
+      {
+        type: 'separator'
+      },
+      {
+        label: 'アプリを終了',
+        click: forceQuitApp
+      }
+    ]);
+    app.dock?.setMenu(dockMenu);
+  }
+  
   createWindow();
+  createTray();
 
   // PowerMonitorService を初期化
-  powerMonitorService = new PowerMonitorService();
+  powerMonitorService = new PowerMonitorService(configManager);
+  if (mainWindow) {
+    powerMonitorService.setMainWindow(mainWindow);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+    } else if (mainWindow) {
+      mainWindow.show();
     }
   });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  // macOSでは全ウィンドウが閉じられてもトレイに残る
+  // ただし、トレイが削除されている場合（強制終了）はアプリも終了
+  if (process.platform !== 'darwin' || !tray) {
     app.quit();
+  }
+});
+
+app.on('before-quit', () => {
+  // アプリ終了時はトレイも削除
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
+  
+  // PowerMonitorサービスも停止
+  if (powerMonitorService) {
+    powerMonitorService.stopMonitoring();
   }
 });
 
@@ -76,11 +245,26 @@ ipcMain.handle('update-config', (_event, newConfig) => {
   return configManager.getConfig();
 });
 
+// 設定ファイルパスを取得
+ipcMain.handle('get-config-path', () => {
+  return configManager.getConfigPath();
+});
+
+// API設定を手動で設定（開発用）
+ipcMain.handle('set-api-config', (_event, apiConfig) => {
+  configManager.setInitialApiConfig(apiConfig);
+  return configManager.getConfig();
+});
+
 
 // freee API関連のハンドラー
 ipcMain.handle('freee-api-init', () => {
   const config = configManager.getConfig();
+  console.log('ConfigManager.getConfig():', JSON.stringify(config, null, 2));
+  console.log('Config file path:', configManager.getConfigPath());
+  
   if (config.api) {
+    console.log('API config found, initializing FreeeApiService...');
     freeeApiService = new FreeeApiService({
       clientId: config.api.clientId,
       clientSecret: config.api.clientSecret,
@@ -98,6 +282,8 @@ ipcMain.handle('freee-api-init', () => {
     }
     
     return true;
+  } else {
+    console.log('No API config found in config');
   }
   return false;
 });
@@ -198,3 +384,4 @@ ipcMain.handle('freee-api-get-time-clocks', async (_event, fromDate?: string, to
   if (!freeeApiService) throw new Error('API service not initialized');
   return await freeeApiService.getTimeClocks(fromDate, toDate);
 });
+

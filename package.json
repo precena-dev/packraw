@@ -1,7 +1,7 @@
 {
-  "name": "freee-webview-app",
+  "name": "packraw-app",
   "version": "1.0.0",
-  "description": "",
+  "description": "パクロー（PackRaw）デスクトップアプリケーション",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
@@ -27,7 +27,7 @@
   "dependencies": {
     "@types/axios": "^0.14.4",
     "axios": "^1.10.0",
-    "electron": "^37.2.0",
+    "electron-store": "^10.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
@@ -37,15 +37,16 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
+    "@vitest/coverage-v8": "^2.1.8",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.0",
+    "electron": "^37.2.0",
     "electron-builder": "^26.0.12",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
     "vite": "^5.4.19",
     "vitest": "^2.1.8",
-    "@vitest/coverage-v8": "^2.1.8",
     "wait-on": "^8.0.3"
   }
 }
