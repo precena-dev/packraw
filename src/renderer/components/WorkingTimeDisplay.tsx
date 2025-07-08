@@ -3,11 +3,17 @@ import React, { useState, useEffect } from 'react';
 interface WorkingTimeDisplayProps {
   employeeInfo: any;
   todayTimeClocks: any[];
+  selectedDate: string;
+  isToday: boolean;
+  onDateChange: (direction: 'prev' | 'next') => void;
 }
 
 export const WorkingTimeDisplay: React.FC<WorkingTimeDisplayProps> = ({ 
   employeeInfo,
-  todayTimeClocks
+  todayTimeClocks,
+  selectedDate,
+  isToday,
+  onDateChange
 }) => {
   const [calculatedWorkingTime, setCalculatedWorkingTime] = useState('00:00');
   const [isCurrentlyWorking, setIsCurrentlyWorking] = useState(false);
@@ -93,40 +99,58 @@ export const WorkingTimeDisplay: React.FC<WorkingTimeDisplayProps> = ({
     setIsCurrentlyWorking(isWorking);
   }, [todayTimeClocks]);
 
-  // 今日の日付を取得してフォーマット
-  const formatTodayDate = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth() + 1; // 0-indexedなので+1
-    const day = today.getDate();
+  // 選択された日付をフォーマット
+  const formatSelectedDate = () => {
+    const date = new Date(selectedDate + 'T00:00:00');
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // 0-indexedなので+1
+    const day = date.getDate();
     
     // 曜日を取得
     const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-    const dayOfWeek = dayNames[today.getDay()];
+    const dayOfWeek = dayNames[date.getDay()];
     
     return `${year}年${month}月${day}日（${dayOfWeek}）`;
   };
 
+
   return (
-    <div className="bg-white border-b p-6" style={{ WebkitAppRegion: 'drag' } as any}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-semibold">freee勤怠管理</h2>
-        <div className="text-lg text-gray-600">
+    <div className="bg-white border-b p-3" style={{ WebkitAppRegion: 'drag' } as any}>
+      <div className="flex items-center justify-end mb-2">
+        <div className="text-lg text-gray-600 employee-name">
           {employeeInfo?.display_name}
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <div className="flex-1"></div>
-        <div className="flex-1 text-center">
-          <span style={{ fontSize: '24px', fontWeight: '600', color: '#1f2937' }}>
-            {formatTodayDate()}
-          </span>
-        </div>
-        <div className="flex-1 text-right">
-          <span className="text-lg text-gray-600">
+        <div className="flex-1">
+          <span className="text-lg text-gray-600 working-time-display">
             （勤務時間：{calculatedWorkingTime}）
           </span>
         </div>
+        <div className="date-nav-container">
+          <button
+            onClick={() => onDateChange('prev')}
+            className="date-nav-button"
+            style={{ WebkitAppRegion: 'no-drag' } as any}
+          >
+            <span className="date-nav-button-icon">‹</span>
+          </button>
+          <span style={{ fontSize: '24px', fontWeight: '600', color: '#1f2937', whiteSpace: 'nowrap' }}>
+            {formatSelectedDate()}
+          </span>
+          {!isToday ? (
+            <button
+              onClick={() => onDateChange('next')}
+              className="date-nav-button"
+              style={{ WebkitAppRegion: 'no-drag' } as any}
+            >
+              <span className="date-nav-button-icon">›</span>
+            </button>
+          ) : (
+            <div className="w-7 h-7">{/* 今日の場合はスペースを確保 */}</div>
+          )}
+        </div>
+        <div className="flex-1"></div>
       </div>
     </div>
   );

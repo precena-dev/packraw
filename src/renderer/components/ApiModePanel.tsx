@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { WorkTimeSection } from './WorkTimeSection';
 import { WorkingTimeDisplay } from './WorkingTimeDisplay';
 import { TimeClockHistory } from './TimeClockHistory';
+import { SettingsModal } from './SettingsModal';
 
 interface TimeClockButtonState {
   clockIn: boolean;
@@ -23,9 +24,21 @@ export const ApiModePanel: React.FC = () => {
     breakEnd: false
   });
   const [todayTimeClocks, setTodayTimeClocks] = useState<any[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>(''); // YYYY-MM-DD形式
+  const [isToday, setIsToday] = useState(true);
+  const [isPowerMonitorEnabled, setIsPowerMonitorEnabled] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
+  // 日本時間での今日の日付を取得するヘルパー関数
+  const getJSTDateString = (date: Date = new Date()): string => {
+    const jstTime = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    return jstTime.toISOString().split('T')[0];
+  };
 
   useEffect(() => {
+    // 今日の日付を初期値として設定
+    const today = getJSTDateString();
+    setSelectedDate(today);
     initializeApi();
   }, []);
 
@@ -105,30 +118,97 @@ export const ApiModePanel: React.FC = () => {
     }
   };
 
-  const updateTodayTimeClocks = async () => {
+  const updateTimeClocks = async (date: string) => {
     try {
       if (isAuthorized) {
-        // 日本時間での今日の日付を取得
-        const now = new Date();
-        const jstTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-        const today = jstTime.toISOString().split('T')[0];
-        const timeClocks = await window.electronAPI.freeeApi.getTimeClocks(today, today);
-        console.log('Today time clocks:', timeClocks);
+        const timeClocks = await window.electronAPI.freeeApi.getTimeClocks(date, date);
+        console.log(`Time clocks for ${date}:`, timeClocks);
         setTodayTimeClocks(timeClocks);
       }
     } catch (error) {
-      console.error('Failed to get today time clocks:', error);
+      console.error(`Failed to get time clocks for ${date}:`, error);
       setTodayTimeClocks([]);
     }
   };
 
+  // 日付変更ハンドラー
+  const handleDateChange = (direction: 'prev' | 'next') => {
+    console.log('handleDateChange called:', direction, 'current selectedDate:', selectedDate);
+    
+    // YYYY-MM-DD形式の文字列から年月日を分解
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const currentDate = new Date(year, month - 1, day); // monthは0-indexedなので-1
+    
+    if (direction === 'prev') {
+      currentDate.setDate(currentDate.getDate() - 1);
+    } else {
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    // 新しい日付をYYYY-MM-DD形式に変換
+    const newYear = currentDate.getFullYear();
+    const newMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const newDay = String(currentDate.getDate()).padStart(2, '0');
+    const newDateString = `${newYear}-${newMonth}-${newDay}`;
+    
+    console.log('New date calculated:', newDateString);
+    
+    const today = getJSTDateString();
+    
+    // 未来日への遷移は不可
+    if (direction === 'next' && newDateString > today) {
+      console.log('Future date blocked:', newDateString, '>', today);
+      return;
+    }
+    
+    setSelectedDate(newDateString);
+    setIsToday(newDateString === today);
+    updateTimeClocks(newDateString);
+  };
+
   // 認証後にボタン状態と打刻履歴を更新
   useEffect(() => {
-    if (isAuthorized) {
+    if (isAuthorized && selectedDate) {
       updateButtonStates();
-      updateTodayTimeClocks();
+      updateTimeClocks(selectedDate);
+    }
+  }, [isAuthorized, selectedDate]);
+
+  // PowerMonitor の状態を初期化
+  useEffect(() => {
+    const initPowerMonitor = async () => {
+      try {
+        const isMonitoring = await window.electronAPI.powerMonitor.isMonitoring();
+        setIsPowerMonitorEnabled(isMonitoring);
+      } catch (error) {
+        console.error('Failed to check PowerMonitor status:', error);
+      }
+    };
+
+    if (isAuthorized) {
+      initPowerMonitor();
     }
   }, [isAuthorized]);
+
+  // 5分ごとの自動更新（今日の場合のみ）
+  useEffect(() => {
+    if (!isAuthorized || !isToday) {
+      return;
+    }
+
+    console.log('Setting up 5-minute auto-refresh for today\'s data');
+    
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing time clocks and button states...');
+      updateButtonStates();
+      updateTimeClocks(selectedDate);
+    }, 5 * 60 * 1000); // 5分 = 300,000ms
+
+    return () => {
+      console.log('Clearing auto-refresh interval');
+      clearInterval(interval);
+    };
+  }, [isAuthorized, isToday, selectedDate]);
 
   const handleAuthorize = async () => {
     setLoading(true);
@@ -153,7 +233,7 @@ export const ApiModePanel: React.FC = () => {
       
       // 打刻後にボタン状態と打刻履歴を更新
       await updateButtonStates();
-      await updateTodayTimeClocks();
+      await updateTimeClocks(selectedDate);
       
       // 勤務記録を更新
       try {
@@ -166,6 +246,28 @@ export const ApiModePanel: React.FC = () => {
       setError(err.message || '打刻に失敗しました');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // PowerMonitor の開始/停止を制御
+  const togglePowerMonitor = async () => {
+    try {
+      if (isPowerMonitorEnabled) {
+        const stopped = await window.electronAPI.powerMonitor.stop();
+        if (stopped) {
+          setIsPowerMonitorEnabled(false);
+          console.log('PowerMonitor stopped');
+        }
+      } else {
+        const started = await window.electronAPI.powerMonitor.start();
+        if (started) {
+          setIsPowerMonitorEnabled(true);
+          console.log('PowerMonitor started');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle PowerMonitor:', error);
+      setError('自動休憩機能の切り替えに失敗しました');
     }
   };
 
@@ -212,15 +314,32 @@ export const ApiModePanel: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col bg-blue-50">
-      <WorkingTimeDisplay
-        employeeInfo={employeeInfo}
-        todayTimeClocks={todayTimeClocks}
-      />
-      <WorkTimeSection
-        loading={loading}
-        buttonStates={buttonStates}
-        onTimeClock={handleTimeClock}
-      />
+      <div className="relative">
+        <WorkingTimeDisplay
+          employeeInfo={employeeInfo}
+          todayTimeClocks={todayTimeClocks}
+          selectedDate={selectedDate}
+          isToday={isToday}
+          onDateChange={handleDateChange}
+        />
+        {/* 設定ボタン */}
+        <button
+          onClick={() => setIsSettingsModalOpen(true)}
+          className="settings-button"
+          title="設定"
+          style={{ WebkitAppRegion: 'no-drag' } as any}
+        >
+          <span className="settings-icon">⚙️</span>
+        </button>
+      </div>
+      {isToday && (
+        <WorkTimeSection
+          loading={loading}
+          buttonStates={buttonStates}
+          onTimeClock={handleTimeClock}
+        />
+      )}
+
 
       {/* 打刻履歴表示 */}
       <div className="pb-4 px-4">
@@ -232,6 +351,14 @@ export const ApiModePanel: React.FC = () => {
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
+
+      {/* 設定モーダル */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        isPowerMonitorEnabled={isPowerMonitorEnabled}
+        onTogglePowerMonitor={togglePowerMonitor}
+      />
     </div>
   );
 };

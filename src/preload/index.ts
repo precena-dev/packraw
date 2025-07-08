@@ -17,5 +17,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getTimeClockButtonStates: () => ipcRenderer.invoke('freee-api-get-time-clock-button-states'),
     getLastTimeClockType: () => ipcRenderer.invoke('freee-api-get-last-time-clock-type'),
     getTimeClocks: (fromDate?: string, toDate?: string) => ipcRenderer.invoke('freee-api-get-time-clocks', fromDate, toDate),
+  },
+  
+  // PowerMonitor API
+  powerMonitor: {
+    start: () => ipcRenderer.invoke('powerMonitor:start'),
+    stop: () => ipcRenderer.invoke('powerMonitor:stop'),
+    isMonitoring: () => ipcRenderer.invoke('powerMonitor:isMonitoring'),
   }
 });

@@ -2,10 +2,12 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { ConfigManager } from './config';
 import { FreeeApiService } from './freeeApi';
+import { PowerMonitorService } from './powerMonitor';
 
 let mainWindow: BrowserWindow | null = null;
 const configManager = new ConfigManager();
 let freeeApiService: FreeeApiService | null = null;
+let powerMonitorService: PowerMonitorService | null = null;
 
 function createWindow() {
   const windowConfig = configManager.getWindowConfig();
@@ -42,6 +44,9 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // PowerMonitorService を初期化
+  powerMonitorService = new PowerMonitorService();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -86,6 +91,12 @@ ipcMain.handle('freee-api-init', () => {
       companyId: config.api.companyId,
       employeeId: config.api.employeeId,
     });
+    
+    // PowerMonitorService に FreeeApiService を設定
+    if (powerMonitorService) {
+      powerMonitorService.setFreeeApiService(freeeApiService);
+    }
+    
     return true;
   }
   return false;

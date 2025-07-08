@@ -55,6 +55,11 @@ declare global {
         getLastTimeClockType: () => Promise<string | null>;
         getTimeClocks: (fromDate?: string, toDate?: string) => Promise<any[]>;
       };
+      powerMonitor: {
+        start: () => Promise<boolean>;
+        stop: () => Promise<boolean>;
+        isMonitoring: () => Promise<boolean>;
+      };
     };
   }
 }
