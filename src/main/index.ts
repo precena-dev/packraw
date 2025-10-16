@@ -355,33 +355,95 @@ ipcMain.handle('freee-api-get-employee-info', async () => {
   }
 });
 
+// トークン情報を設定ファイルに保存する共通処理
+function saveTokensToConfig() {
+  if (!freeeApiService) return;
+
+  const apiConfig = freeeApiService.getConfig();
+  const currentConfig = configManager.getConfig();
+
+  configManager.updateConfig({
+    ...currentConfig,
+    api: {
+      ...currentConfig.api!,
+      accessToken: apiConfig.accessToken,
+      refreshToken: apiConfig.refreshToken,
+      refreshTokenExpiresAt: apiConfig.refreshTokenExpiresAt,
+    }
+  });
+}
+
 ipcMain.handle('freee-api-time-clock', async (_event, type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  return await freeeApiService.timeClock(type);
+  try {
+    const result = await freeeApiService.timeClock(type);
+    // API呼び出し後にトークンを保存（リフレッシュされた可能性があるため）
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    // エラー時もトークンを保存（リフレッシュは成功している可能性があるため）
+    saveTokensToConfig();
+    throw error;
+  }
 });
 
 ipcMain.handle('freee-api-get-today-work-record', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  return await freeeApiService.getTodayWorkRecord();
+  try {
+    const result = await freeeApiService.getTodayWorkRecord();
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
 });
 
 ipcMain.handle('freee-api-get-companies', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  return await freeeApiService.getCompanies();
+  try {
+    const result = await freeeApiService.getCompanies();
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
 });
 
 ipcMain.handle('freee-api-get-time-clock-button-states', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  return await freeeApiService.getTimeClockButtonStates();
+  try {
+    const result = await freeeApiService.getTimeClockButtonStates();
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
 });
 
 ipcMain.handle('freee-api-get-last-time-clock-type', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  return await freeeApiService.getLastTimeClockType();
+  try {
+    const result = await freeeApiService.getLastTimeClockType();
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
 });
 
 ipcMain.handle('freee-api-get-time-clocks', async (_event, fromDate?: string, toDate?: string) => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  return await freeeApiService.getTimeClocks(fromDate, toDate);
+  try {
+    const result = await freeeApiService.getTimeClocks(fromDate, toDate);
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
 });
 
