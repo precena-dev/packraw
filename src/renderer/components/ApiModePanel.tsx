@@ -353,8 +353,8 @@ export const ApiModePanel: React.FC = () => {
       const date = new Date(baseDate);
       const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD形式
 
-      // 現在の勤怠記録から休憩データを取得
-      const currentWorkRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
+      // 選択された日付の勤怠記録から休憩データを取得
+      const currentWorkRecord = await window.electronAPI.freeeApi.getWorkRecord(dateString);
       if (!currentWorkRecord || !currentWorkRecord.breakRecords) {
         throw new Error('勤怠記録が取得できませんでした');
       }
@@ -441,8 +441,8 @@ export const ApiModePanel: React.FC = () => {
       const beginDateTimeISO = formatToJSTISO(dateString, beginHour, beginMinute);
       const endDateTimeISO = formatToJSTISO(dateString, endHour, endMinute);
 
-      // 現在の勤怠記録から休憩データを取得（修正後の時刻を取得）
-      const currentWorkRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
+      // 選択された日付の勤怠記録から休憩データを取得（修正後の時刻を取得）
+      const currentWorkRecord = await window.electronAPI.freeeApi.getWorkRecord(dateString);
       if (!currentWorkRecord || !currentWorkRecord.breakRecords) {
         throw new Error('勤怠記録が取得できませんでした');
       }
@@ -533,8 +533,8 @@ export const ApiModePanel: React.FC = () => {
       const beginDateTimeISO = formatToJSTISO(dateString, beginHour, beginMinute);
       const endDateTimeISO = formatToJSTISO(dateString, endHour, endMinute);
 
-      // 現在の勤怠記録から休憩データを取得
-      const currentWorkRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
+      // 選択された日付の勤怠記録から休憩データを取得
+      const currentWorkRecord = await window.electronAPI.freeeApi.getWorkRecord(dateString);
       if (!currentWorkRecord) {
         throw new Error('勤怠記録が取得できませんでした');
       }
@@ -617,8 +617,8 @@ export const ApiModePanel: React.FC = () => {
 
       const newDateTime = formatToJSTISO(dateString, hour, minute);
 
-      // 現在の勤怠記録を取得
-      const currentWorkRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
+      // 選択された日付の勤怠記録を取得
+      const currentWorkRecord = await window.electronAPI.freeeApi.getWorkRecord(dateString);
       if (!currentWorkRecord) {
         throw new Error('勤怠記録が取得できませんでした');
       }

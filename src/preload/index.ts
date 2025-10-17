@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     timeClock: (type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') =>
       ipcRenderer.invoke('freee-api-time-clock', type),
     getTodayWorkRecord: () => ipcRenderer.invoke('freee-api-get-today-work-record'),
+    getWorkRecord: (date: string) => ipcRenderer.invoke('freee-api-get-work-record', date),
     getCompanies: () => ipcRenderer.invoke('freee-api-get-companies'),
     getTimeClockButtonStates: () => ipcRenderer.invoke('freee-api-get-time-clock-button-states'),
     getLastTimeClockType: () => ipcRenderer.invoke('freee-api-get-last-time-clock-type'),

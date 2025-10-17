@@ -48,6 +48,7 @@ declare global {
         getEmployeeInfo: () => Promise<any>;
         timeClock: (type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => Promise<any>;
         getTodayWorkRecord: () => Promise<any>;
+        getWorkRecord: (date: string) => Promise<any>;
         getCompanies: () => Promise<any>;
         getTimeClockButtonStates: () => Promise<TimeClockButtonState>;
         getLastTimeClockType: () => Promise<string | null>;

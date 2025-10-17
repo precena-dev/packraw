@@ -399,6 +399,18 @@ ipcMain.handle('freee-api-get-today-work-record', async () => {
   }
 });
 
+ipcMain.handle('freee-api-get-work-record', async (_event, date: string) => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  try {
+    const result = await freeeApiService.getWorkRecord(date);
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
+});
+
 ipcMain.handle('freee-api-get-companies', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
   try {
