@@ -1,37 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
-interface EditBreakModalProps {
-  breakBegin: any;
-  breakEnd: any;
+interface AddBreakModalProps {
   onSave: (beginTime: string, endTime: string) => void;
   onCancel: () => void;
 }
 
-export const EditBreakModal: React.FC<EditBreakModalProps> = ({
-  breakBegin,
-  breakEnd,
+export const AddBreakModal: React.FC<AddBreakModalProps> = ({
   onSave,
   onCancel,
 }) => {
-  // 時刻を HH:MM 形式で抽出
-  const extractTime = (datetime: string | null) => {
-    if (!datetime) return '';
-    const date = new Date(datetime);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
-
-  const [beginTime, setBeginTime] = useState(extractTime(breakBegin?.datetime));
-  const [endTime, setEndTime] = useState(extractTime(breakEnd?.datetime));
+  const [beginTime, setBeginTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setBeginTime(extractTime(breakBegin?.datetime));
-    setEndTime(extractTime(breakEnd?.datetime));
-    setError('');
-  }, [breakBegin, breakEnd]);
 
   const handleSave = () => {
     // 既に保存中の場合は処理しない
@@ -88,7 +69,7 @@ export const EditBreakModal: React.FC<EditBreakModalProps> = ({
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">休憩時間を修正</h2>
+          <h2 className="modal-title">休憩時間を追加</h2>
         </div>
 
         <div className="modal-body">
@@ -130,7 +111,7 @@ export const EditBreakModal: React.FC<EditBreakModalProps> = ({
 
           <div className="modal-info">
             <p className="modal-info-text">
-              休憩時間の打刻時刻を修正できます。修正後の時刻で打刻が更新されます。
+              新しい休憩時間を追加します。開始時刻と終了時刻を入力してください。
             </p>
           </div>
         </div>
@@ -148,7 +129,7 @@ export const EditBreakModal: React.FC<EditBreakModalProps> = ({
             onClick={handleSave}
             disabled={saving}
           >
-            {saving ? '保存中...' : '保存'}
+            {saving ? '追加中...' : '追加'}
           </button>
         </div>
       </div>

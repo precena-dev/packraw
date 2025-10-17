@@ -3,10 +3,12 @@ import React, { useState } from 'react';
 interface TimeClockHistoryProps {
   todayTimeClocks: any[];
   onEditBreak?: (breakBegin: any, breakEnd: any) => void;
+  onAddBreak?: () => void;
+  onDeleteBreak?: (breakBegin: any, breakEnd: any) => void;
   loading?: boolean;
 }
 
-export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak, loading = false }) => {
+export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak, onAddBreak, onDeleteBreak, loading = false }) => {
   const formatTime = (datetime: string) => {
     const date = new Date(datetime);
     return date.toLocaleTimeString('ja-JP', { 
@@ -93,11 +95,25 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
 
       <div className="break-section">
         <div className="break-header">
-          <svg className="time-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12"></polyline>
-          </svg>
-          <span>休憩履歴</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg className="time-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12"></polyline>
+            </svg>
+            <span>休憩履歴</span>
+          </div>
+          {onAddBreak && (
+            <button
+              onClick={onAddBreak}
+              className="add-break-button"
+              title="休憩時間を追加"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
+          )}
         </div>
         <div className="break-list">
           {breakSessions.length > 0 && breakSessions.some(s => s.begin || s.end) ? (
@@ -114,18 +130,34 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
                       </span>
                     )}
                   </div>
-                  {(session.begin || session.end) && onEditBreak && (
-                    <button
-                      onClick={() => onEditBreak(session.begin, session.end)}
-                      className="edit-button"
-                      title="休憩時間を修正"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="edit-icon">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                      </svg>
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {(session.begin || session.end) && onEditBreak && (
+                      <button
+                        onClick={() => onEditBreak(session.begin, session.end)}
+                        className="edit-button"
+                        title="休憩時間を修正"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="edit-icon">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                      </button>
+                    )}
+                    {(session.begin || session.end) && onDeleteBreak && (
+                      <button
+                        onClick={() => onDeleteBreak(session.begin, session.end)}
+                        className="delete-button"
+                        title="休憩時間を削除"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="delete-icon">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          <line x1="10" y1="11" x2="10" y2="17"></line>
+                          <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : null
             ))

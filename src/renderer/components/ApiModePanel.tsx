@@ -4,6 +4,7 @@ import { WorkingTimeDisplay } from './WorkingTimeDisplay';
 import { TimeClockHistory } from './TimeClockHistory';
 import { SettingsModal } from './SettingsModal';
 import { EditBreakModal } from './EditBreakModal';
+import { AddBreakModal } from './AddBreakModal';
 
 interface TimeClockButtonState {
   clockIn: boolean;
@@ -30,6 +31,7 @@ export const ApiModePanel: React.FC = () => {
   const [isPowerMonitorEnabled, setIsPowerMonitorEnabled] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isEditBreakModalOpen, setIsEditBreakModalOpen] = useState(false);
+  const [isAddBreakModalOpen, setIsAddBreakModalOpen] = useState(false);
   const [editingBreak, setEditingBreak] = useState<{ begin: any; end: any } | null>(null);
 
   // 日本時間での今日の日付を取得するヘルパー関数
@@ -324,6 +326,83 @@ export const ApiModePanel: React.FC = () => {
     setIsEditBreakModalOpen(true);
   };
 
+  // 休憩時間の追加を開始
+  const handleAddBreak = () => {
+    setIsAddBreakModalOpen(true);
+  };
+
+  // 休憩時間の削除
+  const handleDeleteBreak = async (breakBegin: any, breakEnd: any) => {
+    if (!confirm('この休憩時間を削除しますか？')) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 日付を取得
+      const baseDate = breakBegin?.datetime || breakEnd?.datetime;
+      if (!baseDate) {
+        throw new Error('基準日時が見つかりません');
+      }
+
+      const date = new Date(baseDate);
+      const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD形式
+
+      // 現在の勤怠記録から休憩データを取得
+      const currentWorkRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
+      if (!currentWorkRecord || !currentWorkRecord.breakRecords) {
+        throw new Error('勤怠記録が取得できませんでした');
+      }
+
+      // 現在の打刻履歴から削除対象のインデックスを特定
+      const allTimeClocks = todayTimeClocks;
+      const breakBegins = allTimeClocks.filter(tc => tc.type === 'break_begin').sort((a, b) =>
+        new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+      );
+      const breakEnds = allTimeClocks.filter(tc => tc.type === 'break_end').sort((a, b) =>
+        new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+      );
+
+      // 削除対象の休憩セッションのインデックスを特定
+      let targetIndex = -1;
+      if (breakBegin) {
+        targetIndex = breakBegins.findIndex(b => b.id === breakBegin.id);
+      } else if (breakEnd) {
+        targetIndex = breakEnds.findIndex(b => b.id === breakEnd.id);
+      }
+
+      // 削除対象以外の休憩記録を保持
+      const breakRecords = currentWorkRecord.breakRecords
+        .filter((_: any, index: number) => index !== targetIndex)
+        .map((record: any) => ({
+          clock_in_at: record.clockInAt,
+          clock_out_at: record.clockOutAt,
+        }));
+
+      // work_recordsを更新
+      await window.electronAPI.freeeApi.updateWorkRecord(dateString, breakRecords);
+
+      // 画面全体をリフレッシュ
+      await updateTimeClocks(selectedDate);
+      await updateButtonStates();
+
+      // 勤務記録も再取得
+      try {
+        const updatedRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
+        console.log('Updated work record after break delete:', updatedRecord);
+      } catch (recordError) {
+        console.log('Could not fetch updated work record:', recordError);
+      }
+    } catch (err: any) {
+      console.error('Failed to delete break time:', err);
+      setError(err.message || '休憩時間の削除に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 休憩時間の更新を保存
   const handleSaveBreak = async (beginTime: string, endTime: string) => {
     if (!editingBreak) return;
@@ -425,6 +504,78 @@ export const ApiModePanel: React.FC = () => {
     }
   };
 
+  // 休憩時間の追加を保存
+  const handleSaveAddBreak = async (beginTime: string, endTime: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 選択された日付を使用
+      const dateString = selectedDate;
+
+      // 時刻を解析して日本時間（JST）のISO 8601形式に変換
+      const [beginHour, beginMinute] = beginTime.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+
+      // YYYY-MM-DD形式の日付文字列と時刻から日本時間のISO 8601文字列を生成
+      const formatToJSTISO = (dateStr: string, hour: number, minute: number): string => {
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(5, 7);
+        const day = dateStr.substring(8, 10);
+        const hourStr = String(hour).padStart(2, '0');
+        const minuteStr = String(minute).padStart(2, '0');
+        return `${year}-${month}-${day}T${hourStr}:${minuteStr}:00.000+09:00`;
+      };
+
+      const beginDateTimeISO = formatToJSTISO(dateString, beginHour, beginMinute);
+      const endDateTimeISO = formatToJSTISO(dateString, endHour, endMinute);
+
+      // 現在の勤怠記録から休憩データを取得
+      const currentWorkRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
+      if (!currentWorkRecord) {
+        throw new Error('勤怠記録が取得できませんでした');
+      }
+
+      // 既存の休憩記録を取得
+      const existingBreakRecords = (currentWorkRecord.breakRecords || []).map((record: any) => ({
+        clock_in_at: record.clockInAt,
+        clock_out_at: record.clockOutAt,
+      }));
+
+      // 新しい休憩記録を追加
+      const breakRecords = [
+        ...existingBreakRecords,
+        {
+          clock_in_at: beginDateTimeISO,
+          clock_out_at: endDateTimeISO,
+        }
+      ];
+
+      // work_recordsを更新
+      await window.electronAPI.freeeApi.updateWorkRecord(dateString, breakRecords);
+
+      // 画面全体をリフレッシュ
+      await updateTimeClocks(selectedDate);
+      await updateButtonStates();
+
+      // 勤務記録も再取得
+      try {
+        const updatedRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
+        console.log('Updated work record after break add:', updatedRecord);
+      } catch (recordError) {
+        console.log('Could not fetch updated work record:', recordError);
+      }
+
+      // モーダルを閉じる
+      setIsAddBreakModalOpen(false);
+    } catch (err: any) {
+      console.error('Failed to add break time:', err);
+      setError(err.message || '休憩時間の追加に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   if (!isApiInitialized) {
     return (
@@ -502,6 +653,8 @@ export const ApiModePanel: React.FC = () => {
       <TimeClockHistory
         todayTimeClocks={todayTimeClocks}
         onEditBreak={handleEditBreak}
+        onAddBreak={handleAddBreak}
+        onDeleteBreak={handleDeleteBreak}
         loading={loading}
       />
 
@@ -529,6 +682,14 @@ export const ApiModePanel: React.FC = () => {
             setIsEditBreakModalOpen(false);
             setEditingBreak(null);
           }}
+        />
+      )}
+
+      {/* 休憩時間追加モーダル */}
+      {isAddBreakModalOpen && (
+        <AddBreakModal
+          onSave={handleSaveAddBreak}
+          onCancel={() => setIsAddBreakModalOpen(false)}
         />
       )}
     </div>

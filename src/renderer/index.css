@@ -272,10 +272,29 @@ html, body, #root {
 .break-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   font-size: 12px;
   color: #666;
   margin-bottom: 8px;
+}
+
+.add-break-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+  color: #666;
+}
+
+.add-break-button:hover {
+  background: #e0e0e0;
+  color: #2e7d32;
 }
 
 .break-list {
@@ -306,7 +325,6 @@ html, body, #root {
   justify-content: center;
   border-radius: 4px;
   transition: all 0.2s;
-  margin-left: 8px;
   color: #666;
 }
 
@@ -316,6 +334,29 @@ html, body, #root {
 }
 
 .edit-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.delete-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+  color: #666;
+}
+
+.delete-button:hover {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.delete-icon {
   width: 16px;
   height: 16px;
 }
@@ -492,12 +533,17 @@ html, body, #root {
   border: none;
 }
 
+.modal-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .modal-button-primary {
   background-color: #2e7d32;
   color: white;
 }
 
-.modal-button-primary:hover {
+.modal-button-primary:hover:not(:disabled) {
   background-color: #1b5e20;
 }
 
@@ -506,7 +552,7 @@ html, body, #root {
   color: #333;
 }
 
-.modal-button-secondary:hover {
+.modal-button-secondary:hover:not(:disabled) {
   background-color: #d0d0d0;
 }
 
