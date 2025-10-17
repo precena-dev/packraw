@@ -548,12 +548,19 @@ export class FreeeApiService {
   }
 
   /**
-   * 勤怠記録を更新する（休憩時間の修正用）
+   * 勤怠記録を更新する（休憩時間、出勤・退勤時刻の修正用）
    * @param date 対象日付 (YYYY-MM-DD形式)
    * @param breakRecords 休憩記録の配列
+   * @param clockInAt 出勤時刻（オプション、指定しない場合は現在の値を使用）
+   * @param clockOutAt 退勤時刻（オプション、指定しない場合は現在の値を使用）
    */
-  async updateWorkRecord(date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>): Promise<any> {
-    console.log('Updating work record:', { date, breakRecords });
+  async updateWorkRecord(
+    date: string,
+    breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>,
+    clockInAt?: string,
+    clockOutAt?: string | null
+  ): Promise<any> {
+    console.log('Updating work record:', { date, breakRecords, clockInAt, clockOutAt });
 
     // 現在の勤怠記録を取得
     const currentRecord = await this.getWorkRecord(date);
@@ -561,7 +568,7 @@ export class FreeeApiService {
       throw new Error('勤怠記録が見つかりません');
     }
 
-    if (!currentRecord.clockInAt) {
+    if (!currentRecord.clockInAt && !clockInAt) {
       throw new Error('出勤時刻が記録されていないため、休憩時間を更新できません');
     }
 
@@ -575,17 +582,26 @@ export class FreeeApiService {
     const requestBody: any = {
       company_id: this.config.companyId,
       break_records: formattedBreakRecords,
-      clock_in_at: this.formatTimeToHHmm(currentRecord.clockInAt),
+      // clockInAtが指定されていればそれを使用、なければ現在の値を使用
+      clock_in_at: clockInAt
+        ? this.formatTimeToHHmm(clockInAt)
+        : this.formatTimeToHHmm(currentRecord.clockInAt!),
     };
 
-    // clock_out_atがある場合のみ含める
-    if (currentRecord.clockOutAt) {
+    // clockOutAtが指定されている場合
+    if (clockOutAt !== undefined) {
+      // nullの場合は含めない（退勤時刻を削除）
+      if (clockOutAt !== null) {
+        requestBody.clock_out_at = this.formatTimeToHHmm(clockOutAt);
+      }
+    } else if (currentRecord.clockOutAt) {
+      // 指定されていない場合は現在の値を使用
       requestBody.clock_out_at = this.formatTimeToHHmm(currentRecord.clockOutAt);
     }
 
     console.log('PUT request body:', JSON.stringify(requestBody, null, 2));
 
-    // 勤怠記録を更新（clock_in_at, clock_out_atは変更せず、休憩時間のみ更新）
+    // 勤怠記録を更新
     const response = await this.axiosInstance.put(
       `/hr/api/v1/employees/${this.config.employeeId}/work_records/${date}`,
       requestBody

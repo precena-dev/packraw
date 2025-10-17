@@ -5,6 +5,7 @@ import { TimeClockHistory } from './TimeClockHistory';
 import { SettingsModal } from './SettingsModal';
 import { EditBreakModal } from './EditBreakModal';
 import { AddBreakModal } from './AddBreakModal';
+import { EditClockTimeModal } from './EditClockTimeModal';
 
 interface TimeClockButtonState {
   clockIn: boolean;
@@ -32,7 +33,9 @@ export const ApiModePanel: React.FC = () => {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isEditBreakModalOpen, setIsEditBreakModalOpen] = useState(false);
   const [isAddBreakModalOpen, setIsAddBreakModalOpen] = useState(false);
+  const [isEditClockTimeModalOpen, setIsEditClockTimeModalOpen] = useState(false);
   const [editingBreak, setEditingBreak] = useState<{ begin: any; end: any } | null>(null);
+  const [editingClockTime, setEditingClockTime] = useState<{ data: any; type: 'clock_in' | 'clock_out' } | null>(null);
 
   // 日本時間での今日の日付を取得するヘルパー関数
   const getJSTDateString = (date: Date = new Date()): string => {
@@ -576,6 +579,89 @@ export const ApiModePanel: React.FC = () => {
     }
   };
 
+  // 出勤時刻の編集を開始
+  const handleEditClockIn = (clockIn: any) => {
+    setEditingClockTime({ data: clockIn, type: 'clock_in' });
+    setIsEditClockTimeModalOpen(true);
+  };
+
+  // 退勤時刻の編集を開始
+  const handleEditClockOut = (clockOut: any) => {
+    setEditingClockTime({ data: clockOut, type: 'clock_out' });
+    setIsEditClockTimeModalOpen(true);
+  };
+
+  // 出勤・退勤時刻の保存
+  const handleSaveClockTime = async (time: string) => {
+    if (!editingClockTime) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 選択された日付を使用
+      const dateString = selectedDate;
+
+      // 時刻を解析して日本時間（JST）のISO 8601形式に変換
+      const [hour, minute] = time.split(':').map(Number);
+
+      // YYYY-MM-DD形式の日付文字列と時刻から日本時間のISO 8601文字列を生成
+      const formatToJSTISO = (dateStr: string, hour: number, minute: number): string => {
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(5, 7);
+        const day = dateStr.substring(8, 10);
+        const hourStr = String(hour).padStart(2, '0');
+        const minuteStr = String(minute).padStart(2, '0');
+        return `${year}-${month}-${day}T${hourStr}:${minuteStr}:00.000+09:00`;
+      };
+
+      const newDateTime = formatToJSTISO(dateString, hour, minute);
+
+      // 現在の勤怠記録を取得
+      const currentWorkRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
+      if (!currentWorkRecord) {
+        throw new Error('勤怠記録が取得できませんでした');
+      }
+
+      // 既存の休憩記録を取得
+      const breakRecords = (currentWorkRecord.breakRecords || []).map((record: any) => ({
+        clock_in_at: record.clockInAt,
+        clock_out_at: record.clockOutAt,
+      }));
+
+      // work_recordsを更新（出勤・退勤時刻も含めて更新する必要がある）
+      // Note: freee APIのupdateWorkRecordは全てのフィールドを送信する必要がある
+      if (editingClockTime.type === 'clock_in') {
+        // 出勤時刻を更新
+        await window.electronAPI.freeeApi.updateWorkRecord(dateString, breakRecords, newDateTime);
+      } else {
+        // 退勤時刻を更新
+        await window.electronAPI.freeeApi.updateWorkRecord(dateString, breakRecords, undefined, newDateTime);
+      }
+
+      // 画面全体をリフレッシュ
+      await updateTimeClocks(selectedDate);
+      await updateButtonStates();
+
+      // 勤務記録も再取得
+      try {
+        const updatedRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
+        console.log('Updated work record after clock time edit:', updatedRecord);
+      } catch (recordError) {
+        console.log('Could not fetch updated work record:', recordError);
+      }
+
+      // モーダルを閉じる
+      setIsEditClockTimeModalOpen(false);
+      setEditingClockTime(null);
+    } catch (err: any) {
+      console.error('Failed to update clock time:', err);
+      setError(err.message || '時刻の更新に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   if (!isApiInitialized) {
     return (
@@ -655,6 +741,8 @@ export const ApiModePanel: React.FC = () => {
         onEditBreak={handleEditBreak}
         onAddBreak={handleAddBreak}
         onDeleteBreak={handleDeleteBreak}
+        onEditClockIn={handleEditClockIn}
+        onEditClockOut={handleEditClockOut}
         loading={loading}
       />
 
@@ -690,6 +778,19 @@ export const ApiModePanel: React.FC = () => {
         <AddBreakModal
           onSave={handleSaveAddBreak}
           onCancel={() => setIsAddBreakModalOpen(false)}
+        />
+      )}
+
+      {/* 出勤・退勤時刻編集モーダル */}
+      {isEditClockTimeModalOpen && editingClockTime && (
+        <EditClockTimeModal
+          clockData={editingClockTime.data}
+          type={editingClockTime.type}
+          onSave={handleSaveClockTime}
+          onCancel={() => {
+            setIsEditClockTimeModalOpen(false);
+            setEditingClockTime(null);
+          }}
         />
       )}
     </div>

@@ -5,10 +5,12 @@ interface TimeClockHistoryProps {
   onEditBreak?: (breakBegin: any, breakEnd: any) => void;
   onAddBreak?: () => void;
   onDeleteBreak?: (breakBegin: any, breakEnd: any) => void;
+  onEditClockIn?: (clockIn: any) => void;
+  onEditClockOut?: (clockOut: any) => void;
   loading?: boolean;
 }
 
-export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak, onAddBreak, onDeleteBreak, loading = false }) => {
+export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak, onAddBreak, onDeleteBreak, onEditClockIn, onEditClockOut, loading = false }) => {
   const formatTime = (datetime: string) => {
     const date = new Date(datetime);
     return date.toLocaleTimeString('ja-JP', { 
@@ -74,8 +76,22 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
           </svg>
           出勤
         </div>
-        <div className={`time-value ${!clockIn ? 'empty' : ''}`}>
-          {clockIn ? formatTime(clockIn.datetime) : '--:--'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className={`time-value ${!clockIn ? 'empty' : ''}`}>
+            {clockIn ? formatTime(clockIn.datetime) : '--:--'}
+          </div>
+          {clockIn && onEditClockIn && (
+            <button
+              onClick={() => onEditClockIn(clockIn)}
+              className="edit-button"
+              title="出勤時刻を修正"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="edit-icon">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -88,8 +104,22 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
           </svg>
           退勤
         </div>
-        <div className={`time-value ${!clockOut ? 'empty' : ''}`}>
-          {clockOut ? formatTime(clockOut.datetime) : '--:--'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className={`time-value ${!clockOut ? 'empty' : ''}`}>
+            {clockOut ? formatTime(clockOut.datetime) : '--:--'}
+          </div>
+          {clockOut && onEditClockOut && (
+            <button
+              onClick={() => onEditClockOut(clockOut)}
+              className="edit-button"
+              title="退勤時刻を修正"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="edit-icon">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 

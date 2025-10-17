@@ -53,7 +53,7 @@ declare global {
         getLastTimeClockType: () => Promise<string | null>;
         getTimeClocks: (fromDate?: string, toDate?: string) => Promise<any[]>;
         getTimeClocksFromWorkRecord: (date: string) => Promise<any[]>;
-        updateWorkRecord: (date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>) => Promise<any>;
+        updateWorkRecord: (date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>, clockInAt?: string, clockOutAt?: string | null) => Promise<any>;
       };
       powerMonitor: {
         start: () => Promise<boolean>;

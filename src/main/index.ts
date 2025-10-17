@@ -459,10 +459,10 @@ ipcMain.handle('freee-api-get-time-clocks-from-work-record', async (_event, date
   }
 });
 
-ipcMain.handle('freee-api-update-work-record', async (_event, date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>) => {
+ipcMain.handle('freee-api-update-work-record', async (_event, date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>, clockInAt?: string, clockOutAt?: string | null) => {
   if (!freeeApiService) throw new Error('API service not initialized');
   try {
-    const result = await freeeApiService.updateWorkRecord(date, breakRecords);
+    const result = await freeeApiService.updateWorkRecord(date, breakRecords, clockInAt, clockOutAt);
     saveTokensToConfig();
     return result;
   } catch (error) {

@@ -20,8 +20,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getLastTimeClockType: () => ipcRenderer.invoke('freee-api-get-last-time-clock-type'),
     getTimeClocks: (fromDate?: string, toDate?: string) => ipcRenderer.invoke('freee-api-get-time-clocks', fromDate, toDate),
     getTimeClocksFromWorkRecord: (date: string) => ipcRenderer.invoke('freee-api-get-time-clocks-from-work-record', date),
-    updateWorkRecord: (date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>) =>
-      ipcRenderer.invoke('freee-api-update-work-record', date, breakRecords),
+    updateWorkRecord: (date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>, clockInAt?: string, clockOutAt?: string | null) =>
+      ipcRenderer.invoke('freee-api-update-work-record', date, breakRecords, clockInAt, clockOutAt),
   },
   
   // PowerMonitor API
