@@ -139,7 +139,7 @@ export class FreeeApiService {
       client_id: this.config.clientId,
       redirect_uri: this.config.redirectUri,
       response_type: 'code',
-      scope: 'hr:employees:me:read hr:employees:me:time_clocks:write hr:employees:me:work_records:read',
+      scope: 'hr:employees:me:read hr:employees:me:time_clocks:write hr:employees:me:work_records:read hr:employees:me:work_records:write',
     });
     return `https://accounts.secure.freee.co.jp/public_api/authorize?${params.toString()}`;
   }
@@ -278,21 +278,30 @@ export class FreeeApiService {
           params: { company_id: this.config.companyId },
         }
       );
-      
+
       console.log('Work record API response:', response.data);
-      
+
       // レスポンス構造を確認
       if (!response.data) {
         console.log('No work record found for date:', date);
         return null;
       }
-      
+
       const data = response.data;
+
+      // break_recordsをキャメルケースに変換
+      const breakRecords = (data.break_records || []).map((record: any) => ({
+        clockInAt: record.clock_in_at,
+        clockOutAt: record.clock_out_at,
+      }));
+
+      console.log('Converted break_records:', breakRecords);
+
       return {
         date: data.date || date,
         clockInAt: data.clock_in_at || null,
         clockOutAt: data.clock_out_at || null,
-        breakRecords: data.break_records || [],
+        breakRecords: breakRecords,
       };
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -304,6 +313,81 @@ export class FreeeApiService {
       }
       console.error('Error fetching work record:', error);
       throw error;
+    }
+  }
+
+  /**
+   * work_recordsのデータをtime_clocks形式に変換
+   * 修正後の時刻を反映するため、work_records APIのデータを使用
+   */
+  async getTimeClocksFromWorkRecord(date: string): Promise<TimeClock[]> {
+    try {
+      const workRecord = await this.getWorkRecord(date);
+      if (!workRecord) {
+        return [];
+      }
+
+      const timeClocks: TimeClock[] = [];
+      let idCounter = 1;
+
+      // clock_in
+      if (workRecord.clockInAt) {
+        timeClocks.push({
+          id: idCounter++,
+          type: 'clock_in',
+          date: date,
+          datetime: workRecord.clockInAt,
+          original_datetime: workRecord.clockInAt,
+          note: '',
+        });
+      }
+
+      // break_records
+      if (workRecord.breakRecords && workRecord.breakRecords.length > 0) {
+        for (const breakRecord of workRecord.breakRecords) {
+          if (breakRecord.clockInAt) {
+            timeClocks.push({
+              id: idCounter++,
+              type: 'break_begin',
+              date: date,
+              datetime: breakRecord.clockInAt,
+              original_datetime: breakRecord.clockInAt,
+              note: '',
+            });
+          }
+          if (breakRecord.clockOutAt) {
+            timeClocks.push({
+              id: idCounter++,
+              type: 'break_end',
+              date: date,
+              datetime: breakRecord.clockOutAt,
+              original_datetime: breakRecord.clockOutAt,
+              note: '',
+            });
+          }
+        }
+      }
+
+      // clock_out
+      if (workRecord.clockOutAt) {
+        timeClocks.push({
+          id: idCounter++,
+          type: 'clock_out',
+          date: date,
+          datetime: workRecord.clockOutAt,
+          original_datetime: workRecord.clockOutAt,
+          note: '',
+        });
+      }
+
+      // 時系列でソート
+      timeClocks.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+
+      console.log('Time clocks converted from work record:', timeClocks);
+      return timeClocks;
+    } catch (error) {
+      console.error('Error getting time clocks from work record:', error);
+      return [];
     }
   }
 
@@ -445,5 +529,69 @@ export class FreeeApiService {
 
   isTimeClockTypeAvailable(type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end'): Promise<boolean> {
     return this.getAvailableTimeClockTypes().then(types => types.includes(type));
+  }
+
+  /**
+   * ISO時刻文字列を"YYYY-MM-DD HH:mm:ss"形式に変換
+   * @param isoTime ISO形式の時刻文字列 (例: "2025-01-01T09:00:00+09:00")
+   * @returns "YYYY-MM-DD HH:mm:ss"形式の時刻文字列 (例: "2025-01-01 09:00:00")
+   */
+  private formatTimeToHHmm(isoTime: string): string {
+    const date = new Date(isoTime);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
+  /**
+   * 勤怠記録を更新する（休憩時間の修正用）
+   * @param date 対象日付 (YYYY-MM-DD形式)
+   * @param breakRecords 休憩記録の配列
+   */
+  async updateWorkRecord(date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>): Promise<any> {
+    console.log('Updating work record:', { date, breakRecords });
+
+    // 現在の勤怠記録を取得
+    const currentRecord = await this.getWorkRecord(date);
+    if (!currentRecord) {
+      throw new Error('勤怠記録が見つかりません');
+    }
+
+    if (!currentRecord.clockInAt) {
+      throw new Error('出勤時刻が記録されていないため、休憩時間を更新できません');
+    }
+
+    // break_records内の時刻も"HH:mm"形式に変換
+    const formattedBreakRecords = breakRecords.map(record => ({
+      clock_in_at: this.formatTimeToHHmm(record.clock_in_at),
+      clock_out_at: this.formatTimeToHHmm(record.clock_out_at),
+    }));
+
+    // リクエストボディを構築（時刻をHH:mm形式に変換）
+    const requestBody: any = {
+      company_id: this.config.companyId,
+      break_records: formattedBreakRecords,
+      clock_in_at: this.formatTimeToHHmm(currentRecord.clockInAt),
+    };
+
+    // clock_out_atがある場合のみ含める
+    if (currentRecord.clockOutAt) {
+      requestBody.clock_out_at = this.formatTimeToHHmm(currentRecord.clockOutAt);
+    }
+
+    console.log('PUT request body:', JSON.stringify(requestBody, null, 2));
+
+    // 勤怠記録を更新（clock_in_at, clock_out_atは変更せず、休憩時間のみ更新）
+    const response = await this.axiosInstance.put(
+      `/hr/api/v1/employees/${this.config.employeeId}/work_records/${date}`,
+      requestBody
+    );
+
+    console.log('Work record updated:', response.data);
+    return response.data;
   }
 }

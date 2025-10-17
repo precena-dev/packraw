@@ -296,6 +296,30 @@ html, body, #root {
   border-bottom: none;
 }
 
+.edit-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+  margin-left: 8px;
+  color: #666;
+}
+
+.edit-button:hover {
+  background: #e0e0e0;
+  color: #2e7d32;
+}
+
+.edit-icon {
+  width: 16px;
+  height: 16px;
+}
+
 .break-times {
   display: flex;
   align-items: center;
@@ -477,6 +501,15 @@ html, body, #root {
   background-color: #1b5e20;
 }
 
+.modal-button-secondary {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.modal-button-secondary:hover {
+  background-color: #d0d0d0;
+}
+
 /* Setting Section Styles */
 .setting-section {
   margin-bottom: 16px;
@@ -621,4 +654,58 @@ html, body, #root {
   color: #999;
   margin: 0;
   font-style: italic;
+}
+
+/* Edit Break Modal Styles */
+.time-edit-section {
+  margin-bottom: 16px;
+}
+
+.time-edit-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.time-edit-label-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.time-edit-input {
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  transition: border-color 0.2s;
+}
+
+.time-edit-input:focus {
+  outline: none;
+  border-color: #2e7d32;
+}
+
+.modal-error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.modal-info {
+  background-color: #e3f2fd;
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 12px;
+}
+
+.modal-info-text {
+  font-size: 12px;
+  color: #1565c0;
+  margin: 0;
+  line-height: 1.4;
 }

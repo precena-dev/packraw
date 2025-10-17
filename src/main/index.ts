@@ -447,3 +447,27 @@ ipcMain.handle('freee-api-get-time-clocks', async (_event, fromDate?: string, to
   }
 });
 
+ipcMain.handle('freee-api-get-time-clocks-from-work-record', async (_event, date: string) => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  try {
+    const result = await freeeApiService.getTimeClocksFromWorkRecord(date);
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
+});
+
+ipcMain.handle('freee-api-update-work-record', async (_event, date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>) => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  try {
+    const result = await freeeApiService.updateWorkRecord(date, breakRecords);
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
+});
+
