@@ -399,6 +399,18 @@ ipcMain.handle('freee-api-get-today-work-record', async () => {
   }
 });
 
+ipcMain.handle('freee-api-get-work-record', async (_event, date: string) => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  try {
+    const result = await freeeApiService.getWorkRecord(date);
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
+});
+
 ipcMain.handle('freee-api-get-companies', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
   try {
@@ -439,6 +451,30 @@ ipcMain.handle('freee-api-get-time-clocks', async (_event, fromDate?: string, to
   if (!freeeApiService) throw new Error('API service not initialized');
   try {
     const result = await freeeApiService.getTimeClocks(fromDate, toDate);
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
+});
+
+ipcMain.handle('freee-api-get-time-clocks-from-work-record', async (_event, date: string) => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  try {
+    const result = await freeeApiService.getTimeClocksFromWorkRecord(date);
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
+});
+
+ipcMain.handle('freee-api-update-work-record', async (_event, date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>, clockInAt?: string, clockOutAt?: string | null) => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  try {
+    const result = await freeeApiService.updateWorkRecord(date, breakRecords, clockInAt, clockOutAt);
     saveTokensToConfig();
     return result;
   } catch (error) {

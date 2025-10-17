@@ -3,6 +3,9 @@ import { WorkTimeSection } from './WorkTimeSection';
 import { WorkingTimeDisplay } from './WorkingTimeDisplay';
 import { TimeClockHistory } from './TimeClockHistory';
 import { SettingsModal } from './SettingsModal';
+import { EditBreakModal } from './EditBreakModal';
+import { AddBreakModal } from './AddBreakModal';
+import { EditClockTimeModal } from './EditClockTimeModal';
 
 interface TimeClockButtonState {
   clockIn: boolean;
@@ -28,6 +31,11 @@ export const ApiModePanel: React.FC = () => {
   const [isToday, setIsToday] = useState(true);
   const [isPowerMonitorEnabled, setIsPowerMonitorEnabled] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isEditBreakModalOpen, setIsEditBreakModalOpen] = useState(false);
+  const [isAddBreakModalOpen, setIsAddBreakModalOpen] = useState(false);
+  const [isEditClockTimeModalOpen, setIsEditClockTimeModalOpen] = useState(false);
+  const [editingBreak, setEditingBreak] = useState<{ begin: any; end: any } | null>(null);
+  const [editingClockTime, setEditingClockTime] = useState<{ data: any; type: 'clock_in' | 'clock_out' } | null>(null);
 
   // 日本時間での今日の日付を取得するヘルパー関数
   const getJSTDateString = (date: Date = new Date()): string => {
@@ -121,49 +129,56 @@ export const ApiModePanel: React.FC = () => {
   const updateTimeClocks = async (date: string) => {
     try {
       if (isAuthorized) {
-        const timeClocks = await window.electronAPI.freeeApi.getTimeClocks(date, date);
-        console.log(`Time clocks for ${date}:`, timeClocks);
+        setLoading(true); // ローディング開始
+        // work_records APIを使用して修正後の時刻を取得
+        const timeClocks = await window.electronAPI.freeeApi.getTimeClocksFromWorkRecord(date);
+        console.log(`Time clocks from work record for ${date}:`, timeClocks);
         setTodayTimeClocks(timeClocks);
       }
     } catch (error) {
-      console.error(`Failed to get time clocks for ${date}:`, error);
+      console.error(`Failed to get time clocks from work record for ${date}:`, error);
       setTodayTimeClocks([]);
+    } finally {
+      setLoading(false); // ローディング終了
     }
   };
 
   // 日付変更ハンドラー
   const handleDateChange = (direction: 'prev' | 'next') => {
     console.log('handleDateChange called:', direction, 'current selectedDate:', selectedDate);
-    
+
     // YYYY-MM-DD形式の文字列から年月日を分解
     const [year, month, day] = selectedDate.split('-').map(Number);
     const currentDate = new Date(year, month - 1, day); // monthは0-indexedなので-1
-    
+
     if (direction === 'prev') {
       currentDate.setDate(currentDate.getDate() - 1);
     } else {
       currentDate.setDate(currentDate.getDate() + 1);
     }
-    
+
     // 新しい日付をYYYY-MM-DD形式に変換
     const newYear = currentDate.getFullYear();
     const newMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
     const newDay = String(currentDate.getDate()).padStart(2, '0');
     const newDateString = `${newYear}-${newMonth}-${newDay}`;
-    
+
     console.log('New date calculated:', newDateString);
-    
+
     const today = getJSTDateString();
-    
+
     // 未来日への遷移は不可
     if (direction === 'next' && newDateString > today) {
       console.log('Future date blocked:', newDateString, '>', today);
       return;
     }
-    
+
+    // 日付変更時に即座に表示をクリア
+    setTodayTimeClocks([]);
+
+    // setSelectedDateするとuseEffectが発火してupdateTimeClocksが呼ばれる
     setSelectedDate(newDateString);
     setIsToday(newDateString === today);
-    updateTimeClocks(newDateString);
   };
 
   // 認証後にボタン状態と打刻履歴を更新
@@ -308,6 +323,329 @@ export const ApiModePanel: React.FC = () => {
     }
   };
 
+  // 休憩時間の編集を開始
+  const handleEditBreak = (breakBegin: any, breakEnd: any) => {
+    setEditingBreak({ begin: breakBegin, end: breakEnd });
+    setIsEditBreakModalOpen(true);
+  };
+
+  // 休憩時間の追加を開始
+  const handleAddBreak = () => {
+    setIsAddBreakModalOpen(true);
+  };
+
+  // 休憩時間の削除
+  const handleDeleteBreak = async (breakBegin: any, breakEnd: any) => {
+    if (!confirm('この休憩時間を削除しますか？')) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 日付を取得
+      const baseDate = breakBegin?.datetime || breakEnd?.datetime;
+      if (!baseDate) {
+        throw new Error('基準日時が見つかりません');
+      }
+
+      const date = new Date(baseDate);
+      const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD形式
+
+      // 選択された日付の勤怠記録から休憩データを取得
+      const currentWorkRecord = await window.electronAPI.freeeApi.getWorkRecord(dateString);
+      if (!currentWorkRecord || !currentWorkRecord.breakRecords) {
+        throw new Error('勤怠記録が取得できませんでした');
+      }
+
+      // 現在の打刻履歴から削除対象のインデックスを特定
+      const allTimeClocks = todayTimeClocks;
+      const breakBegins = allTimeClocks.filter(tc => tc.type === 'break_begin').sort((a, b) =>
+        new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+      );
+      const breakEnds = allTimeClocks.filter(tc => tc.type === 'break_end').sort((a, b) =>
+        new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+      );
+
+      // 削除対象の休憩セッションのインデックスを特定
+      let targetIndex = -1;
+      if (breakBegin) {
+        targetIndex = breakBegins.findIndex(b => b.id === breakBegin.id);
+      } else if (breakEnd) {
+        targetIndex = breakEnds.findIndex(b => b.id === breakEnd.id);
+      }
+
+      // 削除対象以外の休憩記録を保持
+      const breakRecords = currentWorkRecord.breakRecords
+        .filter((_: any, index: number) => index !== targetIndex)
+        .map((record: any) => ({
+          clock_in_at: record.clockInAt,
+          clock_out_at: record.clockOutAt,
+        }));
+
+      // work_recordsを更新
+      await window.electronAPI.freeeApi.updateWorkRecord(dateString, breakRecords);
+
+      // 画面全体をリフレッシュ
+      await updateTimeClocks(selectedDate);
+
+      // 今日の日付を編集した場合のみボタン状態を更新
+      if (isToday) {
+        await updateButtonStates();
+      }
+    } catch (err: any) {
+      console.error('Failed to delete break time:', err);
+      setError(err.message || '休憩時間の削除に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 休憩時間の更新を保存
+  const handleSaveBreak = async (beginTime: string, endTime: string) => {
+    if (!editingBreak) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 日付を取得（編集中の休憩開始時刻から）
+      const baseDate = editingBreak.begin?.datetime || editingBreak.end?.datetime;
+      if (!baseDate) {
+        throw new Error('基準日時が見つかりません');
+      }
+
+      const date = new Date(baseDate);
+      const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD形式
+
+      // 時刻を解析して日本時間（JST）のISO 8601形式に変換
+      const [beginHour, beginMinute] = beginTime.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+
+      // YYYY-MM-DD形式の日付文字列と時刻から日本時間のISO 8601文字列を生成
+      const formatToJSTISO = (dateStr: string, hour: number, minute: number): string => {
+        // 日本時間として日時を構築（タイムゾーン +09:00）
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(5, 7);
+        const day = dateStr.substring(8, 10);
+        const hourStr = String(hour).padStart(2, '0');
+        const minuteStr = String(minute).padStart(2, '0');
+        return `${year}-${month}-${day}T${hourStr}:${minuteStr}:00.000+09:00`;
+      };
+
+      const beginDateTimeISO = formatToJSTISO(dateString, beginHour, beginMinute);
+      const endDateTimeISO = formatToJSTISO(dateString, endHour, endMinute);
+
+      // 選択された日付の勤怠記録から休憩データを取得（修正後の時刻を取得）
+      const currentWorkRecord = await window.electronAPI.freeeApi.getWorkRecord(dateString);
+      if (!currentWorkRecord || !currentWorkRecord.breakRecords) {
+        throw new Error('勤怠記録が取得できませんでした');
+      }
+
+      // 現在の打刻履歴から編集対象のインデックスを特定
+      const allTimeClocks = todayTimeClocks;
+      const breakBegins = allTimeClocks.filter(tc => tc.type === 'break_begin').sort((a, b) =>
+        new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+      );
+      const breakEnds = allTimeClocks.filter(tc => tc.type === 'break_end').sort((a, b) =>
+        new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+      );
+
+      // 編集対象の休憩セッションのインデックスを特定
+      let targetIndex = -1;
+      if (editingBreak.begin) {
+        targetIndex = breakBegins.findIndex(b => b.id === editingBreak.begin.id);
+      } else if (editingBreak.end) {
+        targetIndex = breakEnds.findIndex(b => b.id === editingBreak.end.id);
+      }
+
+      // work_recordsから既存の休憩記録を取得し、編集対象のみ更新
+      const breakRecords = currentWorkRecord.breakRecords.map((record: any, index: number) => {
+        if (index === targetIndex) {
+          // 編集対象の休憩時間を更新
+          return {
+            clock_in_at: beginDateTimeISO,
+            clock_out_at: endDateTimeISO,
+          };
+        } else {
+          // 既存の休憩時間をそのまま保持
+          return {
+            clock_in_at: record.clockInAt,
+            clock_out_at: record.clockOutAt,
+          };
+        }
+      });
+
+      // work_recordsを更新
+      await window.electronAPI.freeeApi.updateWorkRecord(dateString, breakRecords);
+
+      // 画面全体をリフレッシュ
+      await updateTimeClocks(selectedDate);
+
+      // 今日の日付を編集した場合のみボタン状態を更新
+      if (isToday) {
+        await updateButtonStates();
+      }
+
+      // モーダルを閉じる
+      setIsEditBreakModalOpen(false);
+      setEditingBreak(null);
+    } catch (err: any) {
+      console.error('Failed to update break time:', err);
+      setError(err.message || '休憩時間の更新に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 休憩時間の追加を保存
+  const handleSaveAddBreak = async (beginTime: string, endTime: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 選択された日付を使用
+      const dateString = selectedDate;
+
+      // 時刻を解析して日本時間（JST）のISO 8601形式に変換
+      const [beginHour, beginMinute] = beginTime.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+
+      // YYYY-MM-DD形式の日付文字列と時刻から日本時間のISO 8601文字列を生成
+      const formatToJSTISO = (dateStr: string, hour: number, minute: number): string => {
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(5, 7);
+        const day = dateStr.substring(8, 10);
+        const hourStr = String(hour).padStart(2, '0');
+        const minuteStr = String(minute).padStart(2, '0');
+        return `${year}-${month}-${day}T${hourStr}:${minuteStr}:00.000+09:00`;
+      };
+
+      const beginDateTimeISO = formatToJSTISO(dateString, beginHour, beginMinute);
+      const endDateTimeISO = formatToJSTISO(dateString, endHour, endMinute);
+
+      // 選択された日付の勤怠記録から休憩データを取得
+      const currentWorkRecord = await window.electronAPI.freeeApi.getWorkRecord(dateString);
+      if (!currentWorkRecord) {
+        throw new Error('勤怠記録が取得できませんでした');
+      }
+
+      // 既存の休憩記録を取得
+      const existingBreakRecords = (currentWorkRecord.breakRecords || []).map((record: any) => ({
+        clock_in_at: record.clockInAt,
+        clock_out_at: record.clockOutAt,
+      }));
+
+      // 新しい休憩記録を追加
+      const breakRecords = [
+        ...existingBreakRecords,
+        {
+          clock_in_at: beginDateTimeISO,
+          clock_out_at: endDateTimeISO,
+        }
+      ];
+
+      // work_recordsを更新
+      await window.electronAPI.freeeApi.updateWorkRecord(dateString, breakRecords);
+
+      // 画面全体をリフレッシュ
+      await updateTimeClocks(selectedDate);
+
+      // 今日の日付を編集した場合のみボタン状態を更新
+      if (isToday) {
+        await updateButtonStates();
+      }
+
+      // モーダルを閉じる
+      setIsAddBreakModalOpen(false);
+    } catch (err: any) {
+      console.error('Failed to add break time:', err);
+      setError(err.message || '休憩時間の追加に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 出勤時刻の編集を開始
+  const handleEditClockIn = (clockIn: any) => {
+    setEditingClockTime({ data: clockIn, type: 'clock_in' });
+    setIsEditClockTimeModalOpen(true);
+  };
+
+  // 退勤時刻の編集を開始
+  const handleEditClockOut = (clockOut: any) => {
+    setEditingClockTime({ data: clockOut, type: 'clock_out' });
+    setIsEditClockTimeModalOpen(true);
+  };
+
+  // 出勤・退勤時刻の保存
+  const handleSaveClockTime = async (time: string) => {
+    if (!editingClockTime) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 選択された日付を使用
+      const dateString = selectedDate;
+
+      // 時刻を解析して日本時間（JST）のISO 8601形式に変換
+      const [hour, minute] = time.split(':').map(Number);
+
+      // YYYY-MM-DD形式の日付文字列と時刻から日本時間のISO 8601文字列を生成
+      const formatToJSTISO = (dateStr: string, hour: number, minute: number): string => {
+        const year = dateStr.substring(0, 4);
+        const month = dateStr.substring(5, 7);
+        const day = dateStr.substring(8, 10);
+        const hourStr = String(hour).padStart(2, '0');
+        const minuteStr = String(minute).padStart(2, '0');
+        return `${year}-${month}-${day}T${hourStr}:${minuteStr}:00.000+09:00`;
+      };
+
+      const newDateTime = formatToJSTISO(dateString, hour, minute);
+
+      // 選択された日付の勤怠記録を取得
+      const currentWorkRecord = await window.electronAPI.freeeApi.getWorkRecord(dateString);
+      if (!currentWorkRecord) {
+        throw new Error('勤怠記録が取得できませんでした');
+      }
+
+      // 既存の休憩記録を取得
+      const breakRecords = (currentWorkRecord.breakRecords || []).map((record: any) => ({
+        clock_in_at: record.clockInAt,
+        clock_out_at: record.clockOutAt,
+      }));
+
+      // work_recordsを更新（出勤・退勤時刻も含めて更新する必要がある）
+      // Note: freee APIのupdateWorkRecordは全てのフィールドを送信する必要がある
+      if (editingClockTime.type === 'clock_in') {
+        // 出勤時刻を更新
+        await window.electronAPI.freeeApi.updateWorkRecord(dateString, breakRecords, newDateTime);
+      } else {
+        // 退勤時刻を更新
+        await window.electronAPI.freeeApi.updateWorkRecord(dateString, breakRecords, undefined, newDateTime);
+      }
+
+      // 画面全体をリフレッシュ
+      await updateTimeClocks(selectedDate);
+
+      // 今日の日付を編集した場合のみボタン状態を更新
+      if (isToday) {
+        await updateButtonStates();
+      }
+
+      // モーダルを閉じる
+      setIsEditClockTimeModalOpen(false);
+      setEditingClockTime(null);
+    } catch (err: any) {
+      console.error('Failed to update clock time:', err);
+      setError(err.message || '時刻の更新に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   if (!isApiInitialized) {
     return (
@@ -382,7 +720,15 @@ export const ApiModePanel: React.FC = () => {
         />
       )}
 
-      <TimeClockHistory todayTimeClocks={todayTimeClocks} />
+      <TimeClockHistory
+        todayTimeClocks={todayTimeClocks}
+        onEditBreak={handleEditBreak}
+        onAddBreak={handleAddBreak}
+        onDeleteBreak={handleDeleteBreak}
+        onEditClockIn={handleEditClockIn}
+        onEditClockOut={handleEditClockOut}
+        loading={loading}
+      />
 
       {error && (
         <div className="error-message">
@@ -397,6 +743,40 @@ export const ApiModePanel: React.FC = () => {
         isPowerMonitorEnabled={isPowerMonitorEnabled}
         onTogglePowerMonitor={togglePowerMonitor}
       />
+
+      {/* 休憩時間編集モーダル */}
+      {isEditBreakModalOpen && editingBreak && (
+        <EditBreakModal
+          breakBegin={editingBreak.begin}
+          breakEnd={editingBreak.end}
+          onSave={handleSaveBreak}
+          onCancel={() => {
+            setIsEditBreakModalOpen(false);
+            setEditingBreak(null);
+          }}
+        />
+      )}
+
+      {/* 休憩時間追加モーダル */}
+      {isAddBreakModalOpen && (
+        <AddBreakModal
+          onSave={handleSaveAddBreak}
+          onCancel={() => setIsAddBreakModalOpen(false)}
+        />
+      )}
+
+      {/* 出勤・退勤時刻編集モーダル */}
+      {isEditClockTimeModalOpen && editingClockTime && (
+        <EditClockTimeModal
+          clockData={editingClockTime.data}
+          type={editingClockTime.type}
+          onSave={handleSaveClockTime}
+          onCancel={() => {
+            setIsEditClockTimeModalOpen(false);
+            setEditingClockTime(null);
+          }}
+        />
+      )}
     </div>
   );
 };
