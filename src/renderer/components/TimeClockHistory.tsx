@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 interface TimeClockHistoryProps {
   todayTimeClocks: any[];
   onEditBreak?: (breakBegin: any, breakEnd: any) => void;
+  loading?: boolean;
 }
 
-export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak }) => {
+export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak, loading = false }) => {
   const formatTime = (datetime: string) => {
     const date = new Date(datetime);
     return date.toLocaleTimeString('ja-JP', { 
@@ -35,6 +36,32 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
     });
   }
 
+  // ローディング中の表示
+  if (loading) {
+    return (
+      <div className="time-table">
+        <div className="loading-container" style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '2rem',
+          minHeight: '200px'
+        }}>
+          <div className="spinner" style={{
+            border: '4px solid #f3f3f3',
+            borderTop: '4px solid #3b82f6',
+            borderRadius: '50%',
+            width: '40px',
+            height: '40px',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p style={{ marginTop: '1rem', color: '#666' }}>読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="time-table">
       <div className="time-row">
@@ -49,7 +76,7 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
           {clockIn ? formatTime(clockIn.datetime) : '--:--'}
         </div>
       </div>
-      
+
       <div className="time-row">
         <div className="time-label-row">
           <svg className="time-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

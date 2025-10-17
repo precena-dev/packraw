@@ -124,6 +124,7 @@ export const ApiModePanel: React.FC = () => {
   const updateTimeClocks = async (date: string) => {
     try {
       if (isAuthorized) {
+        setLoading(true); // ローディング開始
         // work_records APIを使用して修正後の時刻を取得
         const timeClocks = await window.electronAPI.freeeApi.getTimeClocksFromWorkRecord(date);
         console.log(`Time clocks from work record for ${date}:`, timeClocks);
@@ -132,6 +133,8 @@ export const ApiModePanel: React.FC = () => {
     } catch (error) {
       console.error(`Failed to get time clocks from work record for ${date}:`, error);
       setTodayTimeClocks([]);
+    } finally {
+      setLoading(false); // ローディング終了
     }
   };
 
@@ -165,10 +168,12 @@ export const ApiModePanel: React.FC = () => {
       return;
     }
 
+    // 日付変更時に即座に表示をクリア
+    setTodayTimeClocks([]);
+
     // setSelectedDateするとuseEffectが発火してupdateTimeClocksが呼ばれる
     setSelectedDate(newDateString);
     setIsToday(newDateString === today);
-    // updateTimeClocks(newDateString); を削除（useEffectで自動実行される）
   };
 
   // 認証後にボタン状態と打刻履歴を更新
@@ -497,6 +502,7 @@ export const ApiModePanel: React.FC = () => {
       <TimeClockHistory
         todayTimeClocks={todayTimeClocks}
         onEditBreak={handleEditBreak}
+        loading={loading}
       />
 
       {error && (
