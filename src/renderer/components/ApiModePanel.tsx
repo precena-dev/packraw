@@ -389,14 +389,10 @@ export const ApiModePanel: React.FC = () => {
 
       // 画面全体をリフレッシュ
       await updateTimeClocks(selectedDate);
-      await updateButtonStates();
 
-      // 勤務記録も再取得
-      try {
-        const updatedRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
-        console.log('Updated work record after break delete:', updatedRecord);
-      } catch (recordError) {
-        console.log('Could not fetch updated work record:', recordError);
+      // 今日の日付を編集した場合のみボタン状態を更新
+      if (isToday) {
+        await updateButtonStates();
       }
     } catch (err: any) {
       console.error('Failed to delete break time:', err);
@@ -484,16 +480,12 @@ export const ApiModePanel: React.FC = () => {
       // work_recordsを更新
       await window.electronAPI.freeeApi.updateWorkRecord(dateString, breakRecords);
 
-      // 画面全体をリフレッシュ（打刻履歴、ボタン状態、勤務記録を全て再取得）
+      // 画面全体をリフレッシュ
       await updateTimeClocks(selectedDate);
-      await updateButtonStates();
 
-      // 勤務記録も再取得
-      try {
-        const updatedRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
-        console.log('Updated work record after break edit:', updatedRecord);
-      } catch (recordError) {
-        console.log('Could not fetch updated work record:', recordError);
+      // 今日の日付を編集した場合のみボタン状態を更新
+      if (isToday) {
+        await updateButtonStates();
       }
 
       // モーダルを閉じる
@@ -559,14 +551,10 @@ export const ApiModePanel: React.FC = () => {
 
       // 画面全体をリフレッシュ
       await updateTimeClocks(selectedDate);
-      await updateButtonStates();
 
-      // 勤務記録も再取得
-      try {
-        const updatedRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
-        console.log('Updated work record after break add:', updatedRecord);
-      } catch (recordError) {
-        console.log('Could not fetch updated work record:', recordError);
+      // 今日の日付を編集した場合のみボタン状態を更新
+      if (isToday) {
+        await updateButtonStates();
       }
 
       // モーダルを閉じる
@@ -641,14 +629,10 @@ export const ApiModePanel: React.FC = () => {
 
       // 画面全体をリフレッシュ
       await updateTimeClocks(selectedDate);
-      await updateButtonStates();
 
-      // 勤務記録も再取得
-      try {
-        const updatedRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
-        console.log('Updated work record after clock time edit:', updatedRecord);
-      } catch (recordError) {
-        console.log('Could not fetch updated work record:', recordError);
+      // 今日の日付を編集した場合のみボタン状態を更新
+      if (isToday) {
+        await updateButtonStates();
       }
 
       // モーダルを閉じる
