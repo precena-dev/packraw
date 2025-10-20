@@ -319,75 +319,91 @@ export class FreeeApiService {
   /**
    * work_recordsのデータをtime_clocks形式に変換
    * 修正後の時刻を反映するため、work_records APIのデータを使用
+   * work_recordsにデータがない場合は、time_clocks APIからリアルタイムデータを取得
    */
   async getTimeClocksFromWorkRecord(date: string): Promise<TimeClock[]> {
     try {
       const workRecord = await this.getWorkRecord(date);
-      if (!workRecord) {
-        return [];
-      }
 
-      const timeClocks: TimeClock[] = [];
-      let idCounter = 1;
+      // work_recordsにデータがある場合は、そこから変換
+      if (workRecord && (workRecord.clockInAt || workRecord.clockOutAt || (workRecord.breakRecords && workRecord.breakRecords.length > 0))) {
+        const timeClocks: TimeClock[] = [];
+        let idCounter = 1;
 
-      // clock_in
-      if (workRecord.clockInAt) {
-        timeClocks.push({
-          id: idCounter++,
-          type: 'clock_in',
-          date: date,
-          datetime: workRecord.clockInAt,
-          original_datetime: workRecord.clockInAt,
-          note: '',
-        });
-      }
+        // clock_in
+        if (workRecord.clockInAt) {
+          timeClocks.push({
+            id: idCounter++,
+            type: 'clock_in',
+            date: date,
+            datetime: workRecord.clockInAt,
+            original_datetime: workRecord.clockInAt,
+            note: '',
+          });
+        }
 
-      // break_records
-      if (workRecord.breakRecords && workRecord.breakRecords.length > 0) {
-        for (const breakRecord of workRecord.breakRecords) {
-          if (breakRecord.clockInAt) {
-            timeClocks.push({
-              id: idCounter++,
-              type: 'break_begin',
-              date: date,
-              datetime: breakRecord.clockInAt,
-              original_datetime: breakRecord.clockInAt,
-              note: '',
-            });
-          }
-          if (breakRecord.clockOutAt) {
-            timeClocks.push({
-              id: idCounter++,
-              type: 'break_end',
-              date: date,
-              datetime: breakRecord.clockOutAt,
-              original_datetime: breakRecord.clockOutAt,
-              note: '',
-            });
+        // break_records
+        if (workRecord.breakRecords && workRecord.breakRecords.length > 0) {
+          for (const breakRecord of workRecord.breakRecords) {
+            if (breakRecord.clockInAt) {
+              timeClocks.push({
+                id: idCounter++,
+                type: 'break_begin',
+                date: date,
+                datetime: breakRecord.clockInAt,
+                original_datetime: breakRecord.clockInAt,
+                note: '',
+              });
+            }
+            if (breakRecord.clockOutAt) {
+              timeClocks.push({
+                id: idCounter++,
+                type: 'break_end',
+                date: date,
+                datetime: breakRecord.clockOutAt,
+                original_datetime: breakRecord.clockOutAt,
+                note: '',
+              });
+            }
           }
         }
+
+        // clock_out
+        if (workRecord.clockOutAt) {
+          timeClocks.push({
+            id: idCounter++,
+            type: 'clock_out',
+            date: date,
+            datetime: workRecord.clockOutAt,
+            original_datetime: workRecord.clockOutAt,
+            note: '',
+          });
+        }
+
+        // 時系列でソート
+        timeClocks.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+
+        console.log('Time clocks converted from work record:', timeClocks);
+        return timeClocks;
       }
 
-      // clock_out
-      if (workRecord.clockOutAt) {
-        timeClocks.push({
-          id: idCounter++,
-          type: 'clock_out',
-          date: date,
-          datetime: workRecord.clockOutAt,
-          original_datetime: workRecord.clockOutAt,
-          note: '',
-        });
-      }
-
-      // 時系列でソート
-      timeClocks.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
-
-      console.log('Time clocks converted from work record:', timeClocks);
+      // work_recordsにデータがない場合は、time_clocks APIからリアルタイムデータを取得
+      console.log('No work record found, fetching from time_clocks API...');
+      const timeClocks = await this.getTimeClocks(date, date);
+      console.log('Time clocks from time_clocks API:', timeClocks);
       return timeClocks;
+
     } catch (error) {
       console.error('Error getting time clocks from work record:', error);
-      return [];
+      // エラーの場合もtime_clocks APIから取得を試みる
+      try {
+        console.log('Falling back to time_clocks API...');
+        const timeClocks = await this.getTimeClocks(date, date);
+        return timeClocks;
+      } catch (fallbackError) {
+        console.error('Fallback to time_clocks API also failed:', fallbackError);
+        return [];
+      }
     }
   }
 
