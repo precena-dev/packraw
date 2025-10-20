@@ -22,7 +22,8 @@
     "test:integration": "TEST_REAL_API=true vitest src/test/freeeApi.integration.test.ts"
   },
   "keywords": [],
-  "author": "",
+  "author": "こばやし",
+  "copyright": "Copyright © 2025 こばやし",
   "license": "ISC",
   "dependencies": {
     "@types/axios": "^0.14.4",

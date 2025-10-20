@@ -12,6 +12,7 @@ let tray: Tray | null = null;
 const configManager = new ConfigManager();
 let freeeApiService: FreeeApiService | null = null;
 let powerMonitorService: PowerMonitorService | null = null;
+let isQuitting = false; // アプリが終了中かどうかのフラグ
 
 
 function createWindow() {
@@ -50,8 +51,9 @@ function createWindow() {
   });
 
   // ウィンドウを閉じた時はトレイに隠す（macOSの慣例）
+  // ただし、明示的に終了する場合（Cmd+Q、メニューからQuit、Dockから終了）は終了させる
   mainWindow.on('close', (event) => {
-    if (process.platform === 'darwin') {
+    if (process.platform === 'darwin' && !isQuitting) {
       event.preventDefault();
       mainWindow?.hide();
     }
@@ -218,12 +220,15 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  // アプリが終了することを示すフラグを立てる
+  isQuitting = true;
+
   // アプリ終了時はトレイも削除
   if (tray) {
     tray.destroy();
     tray = null;
   }
-  
+
   // PowerMonitorサービスも停止
   if (powerMonitorService) {
     powerMonitorService.stopMonitoring();
