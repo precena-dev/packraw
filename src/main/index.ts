@@ -134,27 +134,33 @@ function createTray() {
 // アプリを強制終了する関数
 function forceQuitApp() {
   console.log('Force quitting application...');
-  
+
   // ウィンドウを明示的に閉じる
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.removeAllListeners('close');
     mainWindow.close();
   }
-  
+
   // トレイを削除
   if (tray) {
     tray.destroy();
     tray = null;
   }
-  
+
   // PowerMonitorサービスを停止
   if (powerMonitorService) {
     powerMonitorService.stopMonitoring();
   }
-  
+
+  // BreakSchedulerを停止（休憩打刻予約を確実にキャンセル）
+  if (breakScheduler) {
+    console.log('Stopping BreakScheduler before quit...');
+    breakScheduler.stop();
+  }
+
   // 強制的にアプリを終了
   app.quit();
-  
+
   // 念のため強制終了
   setTimeout(() => {
     console.log('Force exiting process...');
