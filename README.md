@@ -51,8 +51,8 @@
    ※ プレセナ用の設定ファイル(config.precena.json)は[ダウンロードページ](https://drive.google.com/drive/folders/1iSum8GMah5t5AZS-wMM0aTwhjhRrjDc2)のmacOSフォルダにあります。
 
 #### Windows
-1. ダウンロードした`PackRaw-<version>-win.zip`を任意のフォルダに解凍
-2. 解凍したフォルダ内の`init-config.bat`をダブルクリックして実行（設定ファイルの初期化）
+1. ダウンロードした`PackRaw-x.x.x-win.zip`を任意のフォルダに解凍
+2. 解凍したフォルダ内の`install.bat`をダブルクリックして実行（設定ファイルの初期化）
 3. `PackRaw-<version>.exe`をダブルクリックして起動
 
 ### 2. 初回認証

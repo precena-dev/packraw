@@ -82,9 +82,11 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
           </div>
           {clockIn && onEditClockIn && (
             <button
-              onClick={() => onEditClockIn(clockIn)}
+              onClick={() => clockOut && onEditClockIn(clockIn)}
               className="edit-button"
-              title="出勤時刻を修正"
+              title={clockOut ? "出勤時刻を修正" : "退勤打刻後に修正が可能になります"}
+              disabled={!clockOut}
+              style={{ opacity: clockOut ? 1 : 0.5, cursor: clockOut ? 'pointer' : 'not-allowed' }}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="edit-icon">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -134,9 +136,11 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
           </div>
           {onAddBreak && (
             <button
-              onClick={onAddBreak}
+              onClick={() => clockOut && onAddBreak()}
               className="add-break-button"
-              title="休憩時間を追加"
+              title={clockOut ? "休憩時間を追加" : "退勤打刻後に追加が可能になります"}
+              disabled={!clockOut}
+              style={{ opacity: clockOut ? 1 : 0.5, cursor: clockOut ? 'pointer' : 'not-allowed' }}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
                 <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -163,9 +167,11 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
                   <div style={{ display: 'flex', gap: '4px' }}>
                     {(session.begin || session.end) && onEditBreak && (
                       <button
-                        onClick={() => onEditBreak(session.begin, session.end)}
+                        onClick={() => clockOut && onEditBreak(session.begin, session.end)}
                         className="edit-button"
-                        title="休憩時間を修正"
+                        title={clockOut ? "休憩時間を修正" : "退勤打刻後に修正が可能になります"}
+                        disabled={!clockOut}
+                        style={{ opacity: clockOut ? 1 : 0.5, cursor: clockOut ? 'pointer' : 'not-allowed' }}
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="edit-icon">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -175,9 +181,11 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
                     )}
                     {(session.begin || session.end) && onDeleteBreak && (
                       <button
-                        onClick={() => onDeleteBreak(session.begin, session.end)}
+                        onClick={() => clockOut && onDeleteBreak(session.begin, session.end)}
                         className="delete-button"
-                        title="休憩時間を削除"
+                        title={clockOut ? "休憩時間を削除" : "退勤打刻後に削除が可能になります"}
+                        disabled={!clockOut}
+                        style={{ opacity: clockOut ? 1 : 0.5, cursor: clockOut ? 'pointer' : 'not-allowed' }}
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="delete-icon">
                           <polyline points="3 6 5 6 21 6"></polyline>
