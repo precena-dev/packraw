@@ -3,6 +3,7 @@ import path from 'path';
 import { ConfigManager } from './config';
 import { FreeeApiService } from './freeeApi';
 import { PowerMonitorService } from './powerMonitor';
+import { BreakScheduler } from './breakScheduler';
 
 // アプリ名を早期設定（Dockに表示される名前）
 app.setName('PackRaw');
@@ -12,6 +13,7 @@ let tray: Tray | null = null;
 const configManager = new ConfigManager();
 let freeeApiService: FreeeApiService | null = null;
 let powerMonitorService: PowerMonitorService | null = null;
+let breakScheduler: BreakScheduler | null = null;
 let isQuitting = false; // アプリが終了中かどうかのフラグ
 
 
@@ -233,6 +235,11 @@ app.on('before-quit', () => {
   if (powerMonitorService) {
     powerMonitorService.stopMonitoring();
   }
+
+  // BreakSchedulerも停止
+  if (breakScheduler) {
+    breakScheduler.stop();
+  }
 });
 
 ipcMain.handle('get-version', () => {
@@ -284,8 +291,20 @@ ipcMain.handle('freee-api-init', () => {
     // PowerMonitorService に FreeeApiService を設定
     if (powerMonitorService) {
       powerMonitorService.setFreeeApiService(freeeApiService);
+
+      // アプリ起動時の自動出勤チェック（非同期で実行、エラーは無視）
+      powerMonitorService.checkAutoClockInOnStartup().catch(error => {
+        console.error('[Main] Auto clock-in on startup failed:', error);
+      });
     }
-    
+
+    // BreakScheduler を初期化
+    breakScheduler = new BreakScheduler(configManager, freeeApiService);
+    const breakConfig = breakScheduler.getConfig();
+    if (breakConfig.enabled) {
+      breakScheduler.start();
+    }
+
     return true;
   } else {
     console.log('No API config found in config');
@@ -488,3 +507,28 @@ ipcMain.handle('freee-api-update-work-record', async (_event, date: string, brea
   }
 });
 
+// BreakScheduler関連のハンドラー
+ipcMain.handle('break-scheduler-get-config', () => {
+  if (!breakScheduler) throw new Error('Break scheduler not initialized');
+  return breakScheduler.getConfig();
+});
+
+ipcMain.handle('break-scheduler-update-config', (_event, config) => {
+  if (!breakScheduler) throw new Error('Break scheduler not initialized');
+  breakScheduler.updateConfig(config);
+  return breakScheduler.getConfig();
+});
+
+ipcMain.handle('break-scheduler-get-next-schedule', () => {
+  if (!breakScheduler) throw new Error('Break scheduler not initialized');
+  return breakScheduler.getNextSchedule();
+});
+
+// AutoTimeClock関連のハンドラー
+ipcMain.handle('auto-time-clock-get-config', () => {
+  return configManager.getAutoTimeClockConfig();
+});
+
+ipcMain.handle('auto-time-clock-update-config', (_event, config) => {
+  return configManager.updateAutoTimeClockConfig(config);
+});

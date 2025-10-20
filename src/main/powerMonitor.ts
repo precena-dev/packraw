@@ -7,16 +7,65 @@ export class PowerMonitorService {
   private isMonitoring = false;
   private mainWindow: BrowserWindow | null = null;
   private configManager: ConfigManager;
-  
+  private isShuttingDown = false;
+
   constructor(configManager: ConfigManager) {
     this.configManager = configManager;
     this.setupIpcHandlers();
-    
+    this.setupShutdownHandler();
+
     // 設定ファイルから初期状態を読み込み
     const powerMonitorConfig = this.configManager.getPowerMonitorConfig();
     if (powerMonitorConfig.enabled) {
       console.log('PowerMonitor auto-start enabled from config');
     }
+  }
+
+  /**
+   * シャットダウン検知のセットアップ
+   */
+  private setupShutdownHandler() {
+    // PCシャットダウン時の処理
+    powerMonitor.on('shutdown' as any, async (event: any) => {
+      console.log('[PowerMonitor] System shutdown detected');
+
+      const config = this.configManager.getConfig();
+      const autoClockOutEnabled = (config.app as any)?.autoTimeClock?.autoClockOutOnShutdown;
+
+      if (!autoClockOutEnabled) {
+        console.log('[PowerMonitor] Auto clock-out on shutdown is disabled');
+        return;
+      }
+
+      if (!this.freeeApiService) {
+        console.log('[PowerMonitor] FreeeApiService not available');
+        return;
+      }
+
+      // シャットダウンを一時的に防ぐ
+      event.preventDefault();
+      this.isShuttingDown = true;
+
+      try {
+        // 最後の打刻タイプを取得
+        const lastType = await this.freeeApiService.getLastTimeClockType();
+        console.log('[PowerMonitor] Last time clock type:', lastType);
+
+        // 退勤していない場合は自動退勤
+        if (lastType !== 'clock_out') {
+          console.log('[PowerMonitor] Clocking out automatically before shutdown...');
+          await this.freeeApiService.timeClock('clock_out');
+          console.log('[PowerMonitor] Clock-out successful');
+        } else {
+          console.log('[PowerMonitor] Already clocked out, no action needed');
+        }
+      } catch (error) {
+        console.error('[PowerMonitor] Failed to auto clock-out:', error);
+      }
+
+      // 処理完了後、シャットダウンを許可
+      this.isShuttingDown = false;
+    });
   }
 
   private setupIpcHandlers() {
@@ -153,5 +202,43 @@ export class PowerMonitorService {
       isMonitoring: this.isMonitoring,
       hasFreeeApi: this.freeeApiService !== null
     };
+  }
+
+  /**
+   * アプリ起動時の自動出勤チェック
+   */
+  public async checkAutoClockInOnStartup(): Promise<void> {
+    const config = this.configManager.getConfig();
+    const autoClockInEnabled = (config.app as any)?.autoTimeClock?.autoClockInOnStartup;
+
+    if (!autoClockInEnabled) {
+      console.log('[PowerMonitor] Auto clock-in on startup is disabled');
+      return;
+    }
+
+    if (!this.freeeApiService) {
+      console.log('[PowerMonitor] FreeeApiService not available for auto clock-in');
+      return;
+    }
+
+    try {
+      // 最後の打刻タイプを取得
+      const lastType = await this.freeeApiService.getLastTimeClockType();
+      console.log('[PowerMonitor] Last time clock type on startup:', lastType);
+
+      // 出勤していない場合は自動出勤
+      if (lastType === null || lastType === 'clock_out') {
+        console.log('[PowerMonitor] Clocking in automatically on startup...');
+        await this.freeeApiService.timeClock('clock_in');
+        console.log('[PowerMonitor] Clock-in successful');
+
+        // レンダラープロセスに通知
+        this.notifyRenderer('auto_clock_in');
+      } else {
+        console.log('[PowerMonitor] Already clocked in, no action needed');
+      }
+    } catch (error) {
+      console.error('[PowerMonitor] Failed to auto clock-in on startup:', error);
+    }
   }
 }

@@ -36,5 +36,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeAllListeners: () => {
       ipcRenderer.removeAllListeners('power-monitor-event');
     }
+  },
+
+  // BreakScheduler API
+  breakScheduler: {
+    getConfig: () => ipcRenderer.invoke('break-scheduler-get-config'),
+    updateConfig: (config: any) => ipcRenderer.invoke('break-scheduler-update-config', config),
+    getNextSchedule: () => ipcRenderer.invoke('break-scheduler-get-next-schedule'),
+  },
+
+  // AutoTimeClock API
+  autoTimeClock: {
+    getConfig: () => ipcRenderer.invoke('auto-time-clock-get-config'),
+    updateConfig: (config: any) => ipcRenderer.invoke('auto-time-clock-update-config', config),
   }
 });

@@ -7,6 +7,18 @@ interface TimeClockButtonState {
   breakEnd: boolean;
 }
 
+interface BreakScheduleConfig {
+  enabled: boolean;
+  breakStartTime: string;
+  breakEndTime: string;
+  randomOffsetMinutes: number;
+}
+
+interface AutoTimeClockConfig {
+  autoClockInOnStartup: boolean;
+  autoClockOutOnShutdown: boolean;
+}
+
 interface AppConfig {
   app: {
     window: {
@@ -17,6 +29,8 @@ interface AppConfig {
     powerMonitor?: {
       enabled: boolean;
     };
+    breakSchedule?: BreakScheduleConfig;
+    autoTimeClock?: AutoTimeClockConfig;
   };
   api?: {
     clientId: string;
@@ -62,6 +76,15 @@ declare global {
         isMonitoring: () => Promise<boolean>;
         onEvent: (callback: (eventType: string) => void) => void;
         removeAllListeners: () => void;
+      };
+      breakScheduler: {
+        getConfig: () => Promise<BreakScheduleConfig>;
+        updateConfig: (config: Partial<BreakScheduleConfig>) => Promise<BreakScheduleConfig>;
+        getNextSchedule: () => Promise<{ type: string; time: Date } | null>;
+      };
+      autoTimeClock: {
+        getConfig: () => Promise<AutoTimeClockConfig>;
+        updateConfig: (config: Partial<AutoTimeClockConfig>) => Promise<AutoTimeClockConfig>;
       };
     };
   }

@@ -36,6 +36,9 @@ export const ApiModePanel: React.FC = () => {
   const [isEditClockTimeModalOpen, setIsEditClockTimeModalOpen] = useState(false);
   const [editingBreak, setEditingBreak] = useState<{ begin: any; end: any } | null>(null);
   const [editingClockTime, setEditingClockTime] = useState<{ data: any; type: 'clock_in' | 'clock_out' } | null>(null);
+  const [breakScheduleConfig, setBreakScheduleConfig] = useState<any>(null);
+  const [nextSchedule, setNextSchedule] = useState<{ type: string; time: Date } | null>(null);
+  const [autoTimeClockConfig, setAutoTimeClockConfig] = useState<any>(null);
 
   // 日本時間での今日の日付を取得するヘルパー関数
   const getJSTDateString = (date: Date = new Date()): string => {
@@ -189,7 +192,7 @@ export const ApiModePanel: React.FC = () => {
     }
   }, [isAuthorized, selectedDate]);
 
-  // PowerMonitor 状態を初期化
+  // PowerMonitor と BreakScheduler の状態を初期化
   useEffect(() => {
     const initSettings = async () => {
       try {
@@ -197,7 +200,30 @@ export const ApiModePanel: React.FC = () => {
         const isMonitoring = await window.electronAPI.powerMonitor.isMonitoring();
         setIsPowerMonitorEnabled(isMonitoring);
         console.log('PowerMonitor status initialized:', isMonitoring);
-        
+
+        // BreakScheduler設定の初期化
+        try {
+          const config = await window.electronAPI.breakScheduler.getConfig();
+          setBreakScheduleConfig(config);
+          console.log('BreakScheduler config initialized:', config);
+
+          // 次回予約を取得
+          const schedule = await window.electronAPI.breakScheduler.getNextSchedule();
+          setNextSchedule(schedule);
+          console.log('Next schedule:', schedule);
+        } catch (error) {
+          console.error('Failed to initialize break scheduler:', error);
+        }
+
+        // AutoTimeClock設定の初期化
+        try {
+          const autoConfig = await window.electronAPI.autoTimeClock.getConfig();
+          setAutoTimeClockConfig(autoConfig);
+          console.log('AutoTimeClock config initialized:', autoConfig);
+        } catch (error) {
+          console.error('Failed to initialize auto time clock:', error);
+        }
+
       } catch (error) {
         console.error('Failed to check settings status:', error);
       }
@@ -215,11 +241,19 @@ export const ApiModePanel: React.FC = () => {
     }
 
     console.log('Setting up 5-minute auto-refresh for today\'s data');
-    
-    const interval = setInterval(() => {
+
+    const interval = setInterval(async () => {
       console.log('Auto-refreshing time clocks and button states...');
       updateButtonStates();
       updateTimeClocks(selectedDate);
+
+      // 次回予約も更新
+      try {
+        const schedule = await window.electronAPI.breakScheduler.getNextSchedule();
+        setNextSchedule(schedule);
+      } catch (error) {
+        console.error('Failed to update next schedule:', error);
+      }
     }, 5 * 60 * 1000); // 5分 = 300,000ms
 
     return () => {
@@ -320,6 +354,35 @@ export const ApiModePanel: React.FC = () => {
     } catch (error) {
       console.error('Failed to toggle PowerMonitor:', error);
       setError('自動休憩機能の切り替えに失敗しました');
+    }
+  };
+
+  // BreakScheduler の設定を更新
+  const updateBreakSchedule = async (config: any) => {
+    try {
+      const updatedConfig = await window.electronAPI.breakScheduler.updateConfig(config);
+      setBreakScheduleConfig(updatedConfig);
+      console.log('BreakScheduler config updated:', updatedConfig);
+
+      // 次回予約を更新
+      const schedule = await window.electronAPI.breakScheduler.getNextSchedule();
+      setNextSchedule(schedule);
+      console.log('Next schedule updated:', schedule);
+    } catch (error) {
+      console.error('Failed to update break schedule:', error);
+      setError('休憩予約設定の更新に失敗しました');
+    }
+  };
+
+  // AutoTimeClock の設定を更新
+  const updateAutoTimeClock = async (config: any) => {
+    try {
+      const updatedConfig = await window.electronAPI.autoTimeClock.updateConfig(config);
+      setAutoTimeClockConfig(updatedConfig);
+      console.log('AutoTimeClock config updated:', updatedConfig);
+    } catch (error) {
+      console.error('Failed to update auto time clock:', error);
+      setError('自動出勤・退勤設定の更新に失敗しました');
     }
   };
 
@@ -698,6 +761,21 @@ export const ApiModePanel: React.FC = () => {
           isToday={isToday}
           onDateChange={handleDateChange}
         />
+
+        {/* 次回予約表示 */}
+        {breakScheduleConfig?.enabled && nextSchedule && (
+          <div className="next-schedule-banner">
+            <span className="next-schedule-icon">⏰</span>
+            <span className="next-schedule-text">
+              次の予約: {nextSchedule.time ? new Date(nextSchedule.time).toLocaleTimeString('ja-JP', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Tokyo'
+              }) : ''} {nextSchedule.type}
+            </span>
+          </div>
+        )}
+
         {/* 設定ボタン */}
         <button
           onClick={() => setIsSettingsModalOpen(true)}
@@ -742,6 +820,10 @@ export const ApiModePanel: React.FC = () => {
         onClose={() => setIsSettingsModalOpen(false)}
         isPowerMonitorEnabled={isPowerMonitorEnabled}
         onTogglePowerMonitor={togglePowerMonitor}
+        breakScheduleConfig={breakScheduleConfig}
+        onUpdateBreakSchedule={updateBreakSchedule}
+        autoTimeClockConfig={autoTimeClockConfig}
+        onUpdateAutoTimeClock={updateAutoTimeClock}
       />
 
       {/* 休憩時間編集モーダル */}
