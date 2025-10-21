@@ -39,6 +39,7 @@ export const ApiModePanel: React.FC = () => {
   const [breakScheduleConfig, setBreakScheduleConfig] = useState<any>(null);
   const [nextSchedule, setNextSchedule] = useState<{ type: string; time: Date } | null>(null);
   const [autoTimeClockConfig, setAutoTimeClockConfig] = useState<any>(null);
+  const [datesWithRecords, setDatesWithRecords] = useState<string[]>([]);
 
   // 日本時間での今日の日付を取得するヘルパー関数
   const getJSTDateString = (date: Date = new Date()): string => {
@@ -146,6 +147,32 @@ export const ApiModePanel: React.FC = () => {
     }
   };
 
+  // 勤怠記録のある日付を取得（過去30日分）
+  const fetchDatesWithRecords = async () => {
+    try {
+      const today = getJSTDateString();
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 30); // 30日前
+
+      const startDateStr = getJSTDateString(startDate);
+
+      // 過去30日分の打刻記録を取得
+      const timeClocks = await window.electronAPI.freeeApi.getTimeClocks(startDateStr, today);
+
+      // 打刻記録がある日付をユニークなセットとして取得
+      const datesSet = new Set<string>();
+      timeClocks.forEach((tc: any) => {
+        if (tc.date) {
+          datesSet.add(tc.date);
+        }
+      });
+
+      setDatesWithRecords(Array.from(datesSet));
+    } catch (error) {
+      console.error('Failed to fetch dates with records:', error);
+    }
+  };
+
   // 日付変更ハンドラー
   const handleDateChange = (direction: 'prev' | 'next') => {
     console.log('handleDateChange called:', direction, 'current selectedDate:', selectedDate);
@@ -184,11 +211,32 @@ export const ApiModePanel: React.FC = () => {
     setIsToday(newDateString === today);
   };
 
+  // カレンダーから日付選択
+  const handleDateSelect = (date: string) => {
+    console.log('handleDateSelect called:', date);
+
+    const today = getJSTDateString();
+
+    // 未来日への遷移は不可
+    if (date > today) {
+      console.log('Future date blocked:', date, '>', today);
+      return;
+    }
+
+    // 日付変更時に即座に表示をクリア
+    setTodayTimeClocks([]);
+
+    // 日付を設定
+    setSelectedDate(date);
+    setIsToday(date === today);
+  };
+
   // 認証後にボタン状態と打刻履歴を更新
   useEffect(() => {
     if (isAuthorized && selectedDate) {
       updateButtonStates();
       updateTimeClocks(selectedDate);
+      fetchDatesWithRecords(); // 勤怠記録のある日付を取得
     }
   }, [isAuthorized, selectedDate]);
 
@@ -760,6 +808,8 @@ export const ApiModePanel: React.FC = () => {
           selectedDate={selectedDate}
           isToday={isToday}
           onDateChange={handleDateChange}
+          onDateSelect={handleDateSelect}
+          datesWithRecords={datesWithRecords}
         />
 
         {/* 設定ボタン */}
