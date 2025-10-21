@@ -1,4 +1,4 @@
-import { powerMonitor, ipcMain, BrowserWindow } from 'electron';
+import { powerMonitor, ipcMain, BrowserWindow, app } from 'electron';
 import { FreeeApiService } from './freeeApi';
 import { ConfigManager } from './config';
 
@@ -61,10 +61,11 @@ export class PowerMonitorService {
         }
       } catch (error) {
         console.error('[PowerMonitor] Failed to auto clock-out:', error);
+      } finally {
+        // 処理完了後、アプリを終了
+        this.isShuttingDown = false;
+        app.quit();
       }
-
-      // 処理完了後、シャットダウンを許可
-      this.isShuttingDown = false;
     });
   }
 
@@ -227,7 +228,7 @@ export class PowerMonitorService {
       console.log('[PowerMonitor] Last time clock type on startup:', lastType);
 
       // 出勤していない場合は自動出勤
-      if (lastType === null || lastType === 'clock_out') {
+      if (lastType === null) {
         console.log('[PowerMonitor] Clocking in automatically on startup...');
         await this.freeeApiService.timeClock('clock_in');
         console.log('[PowerMonitor] Clock-in successful');
