@@ -762,20 +762,6 @@ export const ApiModePanel: React.FC = () => {
           onDateChange={handleDateChange}
         />
 
-        {/* 次回予約表示 */}
-        {breakScheduleConfig?.enabled && nextSchedule && (
-          <div className="next-schedule-banner">
-            <span className="next-schedule-icon">⏰</span>
-            <span className="next-schedule-text">
-              次の予約: {nextSchedule.time ? new Date(nextSchedule.time).toLocaleTimeString('ja-JP', {
-                hour: '2-digit',
-                minute: '2-digit',
-                timeZone: 'Asia/Tokyo'
-              }) : ''} {nextSchedule.type}
-            </span>
-          </div>
-        )}
-
         {/* 設定ボタン */}
         <button
           onClick={() => setIsSettingsModalOpen(true)}
@@ -806,6 +792,8 @@ export const ApiModePanel: React.FC = () => {
         onEditClockIn={handleEditClockIn}
         onEditClockOut={handleEditClockOut}
         loading={loading}
+        nextSchedule={nextSchedule}
+        showScheduleIndicator={isToday && breakScheduleConfig?.enabled}
       />
 
       {error && (
