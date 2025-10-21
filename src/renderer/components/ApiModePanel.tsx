@@ -794,6 +794,7 @@ export const ApiModePanel: React.FC = () => {
         loading={loading}
         nextSchedule={nextSchedule}
         showScheduleIndicator={isToday && breakScheduleConfig?.enabled}
+        isPowerMonitorEnabled={isPowerMonitorEnabled}
       />
 
       {error && (

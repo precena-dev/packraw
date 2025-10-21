@@ -756,6 +756,19 @@ html, body, #root {
   line-height: 1.4;
 }
 
+/* PowerMonitor有効アイコン（ロボット） */
+.power-monitor-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6; /* blue-500 */
+  transition: all 0.2s ease;
+}
+
+.power-monitor-indicator svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
 /* 次回予約アイコン（休憩履歴の+ボタンの左） */
 .schedule-indicator {
   display: flex;

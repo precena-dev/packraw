@@ -10,9 +10,10 @@ interface TimeClockHistoryProps {
   loading?: boolean;
   nextSchedule?: { type: string; time: Date } | null;
   showScheduleIndicator?: boolean;
+  isPowerMonitorEnabled?: boolean;
 }
 
-export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak, onAddBreak, onDeleteBreak, onEditClockIn, onEditClockOut, loading = false, nextSchedule, showScheduleIndicator = false }) => {
+export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak, onAddBreak, onDeleteBreak, onEditClockIn, onEditClockOut, loading = false, nextSchedule, showScheduleIndicator = false, isPowerMonitorEnabled = false }) => {
   const formatTime = (datetime: string) => {
     const date = new Date(datetime);
     return date.toLocaleTimeString('ja-JP', { 
@@ -137,6 +138,13 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
             <span>休憩履歴</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isPowerMonitorEnabled && (
+              <div className="power-monitor-indicator">
+                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" style={{ width: '16px', height: '16px' }}>
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+              </div>
+            )}
             {showScheduleIndicator && nextSchedule && (
               <div
                 className="schedule-indicator"
