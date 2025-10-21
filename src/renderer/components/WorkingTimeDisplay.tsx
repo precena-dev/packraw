@@ -144,10 +144,13 @@ export const WorkingTimeDisplay: React.FC<WorkingTimeDisplayProps> = ({
           </button>
           <div className="date-info">
             <div className="date-label">
-              <span>{formatSelectedDate()}の勤務時間</span>
+              <span>{formatSelectedDate()}</span>
               {isToday && <span className="today-indicator">今日</span>}
             </div>
-            <div className="time-display">{calculatedWorkingTime}</div>
+            <div className="time-display">
+              <span className="time-label">勤務時間</span>
+              <span className="time-value">{calculatedWorkingTime}</span>
+            </div>
           </div>
           {!isToday ? (
             <button 

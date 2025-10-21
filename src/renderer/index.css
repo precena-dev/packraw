@@ -130,10 +130,27 @@ html, body, #root {
   font-size: 12px;
   color: #666;
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .time-display {
-  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.time-label {
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+}
+
+.time-value {
+  font-size: 36px;
   font-weight: 300;
   font-variant-numeric: tabular-nums;
   color: #333;
