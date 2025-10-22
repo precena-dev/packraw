@@ -130,10 +130,27 @@ html, body, #root {
   font-size: 12px;
   color: #666;
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .time-display {
-  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.time-label {
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+}
+
+.time-value {
+  font-size: 36px;
   font-weight: 300;
   font-variant-numeric: tabular-nums;
   color: #333;
@@ -754,4 +771,200 @@ html, body, #root {
   color: #1565c0;
   margin: 0;
   line-height: 1.4;
+}
+
+/* PowerMonitor有効アイコン（ロボット） */
+.power-monitor-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6; /* blue-500 */
+  transition: all 0.2s ease;
+}
+
+.power-monitor-indicator svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+/* 次回予約アイコン（休憩履歴の+ボタンの左） */
+.schedule-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  color: #f59e0b; /* amber-500 */
+  transition: all 0.2s ease;
+  animation: pulse-schedule 2s ease-in-out infinite;
+}
+
+.schedule-indicator:hover {
+  transform: scale(1.15);
+  color: #d97706; /* amber-600 */
+}
+
+.schedule-indicator svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+@keyframes pulse-schedule {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* カレンダーモーダル */
+.calendar-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  max-width: 400px;
+  width: 90%;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.calendar-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.calendar-nav-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-nav-button:hover {
+  background: #f5f5f5;
+}
+
+.calendar-nav-button svg {
+  width: 20px;
+  height: 20px;
+  color: #666;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #888;
+  padding: 8px 0;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #333;
+  font-weight: 400;
+  position: relative;
+}
+
+.calendar-day:hover {
+  background: #f0f0f0;
+}
+
+.calendar-day.other-month {
+  color: #ccc;
+}
+
+.calendar-day.today {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.calendar-day.selected {
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+}
+
+.calendar-day.selected:hover {
+  background: #2563eb;
+}
+
+.calendar-day.has-record::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #4caf50;
+}
+
+.calendar-day.selected.has-record::after {
+  background: white;
+}
+
+.calendar-footer {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.calendar-today-button,
+.calendar-close-button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.calendar-today-button {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.calendar-today-button:hover {
+  background: #e5e5e5;
+}
+
+.calendar-close-button {
+  background: #3b82f6;
+  color: white;
+}
+
+.calendar-close-button:hover {
+  background: #2563eb;
 }

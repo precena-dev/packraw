@@ -8,8 +8,18 @@
     "powerMonitor": {
       "enabled": false
     },
+    "autoTimeClock": {
+      "autoClockInOnStartup": false,
+      "autoClockOutOnShutdown": false
+    },
     "developer": {
       "showDevTools": false
+    },
+    "breakSchedule": {
+      "enabled": false,
+      "breakStartTime": "12:00",
+      "breakEndTime": "13:00",
+      "randomOffsetMinutes": 5
     }
   },
   "api": {

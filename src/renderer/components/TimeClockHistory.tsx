@@ -8,9 +8,12 @@ interface TimeClockHistoryProps {
   onEditClockIn?: (clockIn: any) => void;
   onEditClockOut?: (clockOut: any) => void;
   loading?: boolean;
+  nextSchedule?: { type: string; time: Date } | null;
+  showScheduleIndicator?: boolean;
+  isPowerMonitorEnabled?: boolean;
 }
 
-export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak, onAddBreak, onDeleteBreak, onEditClockIn, onEditClockOut, loading = false }) => {
+export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak, onAddBreak, onDeleteBreak, onEditClockIn, onEditClockOut, loading = false, nextSchedule, showScheduleIndicator = false, isPowerMonitorEnabled = false }) => {
   const formatTime = (datetime: string) => {
     const date = new Date(datetime);
     return date.toLocaleTimeString('ja-JP', { 
@@ -134,20 +137,44 @@ export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClo
             </svg>
             <span>休憩履歴</span>
           </div>
-          {onAddBreak && (
-            <button
-              onClick={() => clockOut && onAddBreak()}
-              className="add-break-button"
-              title={clockOut ? "休憩時間を追加" : "退勤打刻後に追加が可能になります"}
-              disabled={!clockOut}
-              style={{ opacity: clockOut ? 1 : 0.5, cursor: clockOut ? 'pointer' : 'not-allowed' }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-            </button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isPowerMonitorEnabled && (
+              <div className="power-monitor-indicator">
+                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" style={{ width: '16px', height: '16px' }}>
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+              </div>
+            )}
+            {showScheduleIndicator && nextSchedule && (
+              <div
+                className="schedule-indicator"
+                title={`次の予約: ${nextSchedule.time ? new Date(nextSchedule.time).toLocaleTimeString('ja-JP', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  timeZone: 'Asia/Tokyo'
+                }) : ''} ${nextSchedule.type}`}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+            )}
+            {onAddBreak && (
+              <button
+                onClick={() => clockOut && onAddBreak()}
+                className="add-break-button"
+                title={clockOut ? "休憩時間を追加" : "退勤打刻後に追加が可能になります"}
+                disabled={!clockOut}
+                style={{ opacity: clockOut ? 1 : 0.5, cursor: clockOut ? 'pointer' : 'not-allowed' }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
         <div className="break-list">
           {breakSessions.length > 0 && breakSessions.some(s => s.begin || s.end) ? (

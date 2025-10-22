@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CalendarModal } from './CalendarModal';
 
 interface WorkingTimeDisplayProps {
   employeeInfo: any;
@@ -6,17 +7,22 @@ interface WorkingTimeDisplayProps {
   selectedDate: string;
   isToday: boolean;
   onDateChange: (direction: 'prev' | 'next') => void;
+  onDateSelect: (date: string) => void;
+  datesWithRecords?: string[];
 }
 
-export const WorkingTimeDisplay: React.FC<WorkingTimeDisplayProps> = ({ 
+export const WorkingTimeDisplay: React.FC<WorkingTimeDisplayProps> = ({
   employeeInfo,
   todayTimeClocks,
   selectedDate,
   isToday,
-  onDateChange
+  onDateChange,
+  onDateSelect,
+  datesWithRecords = []
 }) => {
   const [calculatedWorkingTime, setCalculatedWorkingTime] = useState('00:00');
   const [isCurrentlyWorking, setIsCurrentlyWorking] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // 勤務時間を計算する関数
   const calculateWorkingTime = () => {
@@ -142,12 +148,19 @@ export const WorkingTimeDisplay: React.FC<WorkingTimeDisplayProps> = ({
               <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
           </button>
-          <div className="date-info">
+          <div
+            className="date-info"
+            onClick={() => setIsCalendarOpen(true)}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="date-label">
-              <span>{formatSelectedDate()}の勤務時間</span>
+              <span>{formatSelectedDate()}</span>
               {isToday && <span className="today-indicator">今日</span>}
             </div>
-            <div className="time-display">{calculatedWorkingTime}</div>
+            <div className="time-display">
+              <span className="time-label">勤務時間</span>
+              <span className="time-value">{calculatedWorkingTime}</span>
+            </div>
           </div>
           {!isToday ? (
             <button 
@@ -168,6 +181,15 @@ export const WorkingTimeDisplay: React.FC<WorkingTimeDisplayProps> = ({
           )}
         </div>
       </div>
+
+      {/* カレンダーモーダル */}
+      <CalendarModal
+        isOpen={isCalendarOpen}
+        onClose={() => setIsCalendarOpen(false)}
+        selectedDate={selectedDate}
+        onDateSelect={onDateSelect}
+        datesWithRecords={datesWithRecords}
+      />
     </div>
   );
 };

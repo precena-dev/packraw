@@ -134,4 +134,21 @@ export class ConfigManager {
     (this.store as any).set('app.developer.showDevTools', enabled);
     console.log('ShowDevTools enabled set to:', enabled);
   }
+
+  // AutoTimeClock設定を取得
+  getAutoTimeClockConfig() {
+    return (this.store as any).get('app.autoTimeClock', {
+      autoClockInOnStartup: false,
+      autoClockOutOnShutdown: false
+    });
+  }
+
+  // AutoTimeClock設定を更新
+  updateAutoTimeClockConfig(config: { autoClockInOnStartup?: boolean; autoClockOutOnShutdown?: boolean }) {
+    const currentConfig = this.getAutoTimeClockConfig();
+    const newConfig = { ...currentConfig, ...config };
+    (this.store as any).set('app.autoTimeClock', newConfig);
+    console.log('AutoTimeClock config updated:', newConfig);
+    return newConfig;
+  }
 }
