@@ -17,8 +17,93 @@ export class PowerMonitorService {
     // 設定ファイルから初期状態を読み込み
     const powerMonitorConfig = this.configManager.getPowerMonitorConfig();
     if (powerMonitorConfig.enabled) {
-      console.log('PowerMonitor auto-start enabled from config');
     }
+  }
+
+  /**
+   * 現在時刻が指定時刻以降かを判定
+   */
+  private isAfterSpecifiedTime(specifiedTime: string): boolean {
+    const now = new Date();
+    const [targetHours, targetMinutes] = specifiedTime.split(':').map(Number);
+
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+
+
+    // 時間で比較
+    if (currentHours > targetHours) {
+      return true;
+    } else if (currentHours === targetHours) {
+      return currentMinutes >= targetMinutes;
+    }
+    return false;
+  }
+
+  /**
+   * 時間帯別自動退勤を実行するかどうか判定
+   */
+  private async shouldAutoClockOutBasedOnTime(): Promise<boolean> {
+    const config = this.configManager.getAutoTimeClockConfig();
+    const afterTimeConfig = config.autoClockOutAfterTime;
+
+    if (!afterTimeConfig || !afterTimeConfig.enabled) {
+      return false;
+    }
+
+    // 指定時刻以降かチェック
+    if (!this.isAfterSpecifiedTime(afterTimeConfig.time)) {
+      return false;
+    }
+
+    // 最後の打刻タイプを確認
+    if (!this.freeeApiService) {
+      return false;
+    }
+
+    try {
+      const lastType = await this.freeeApiService.getLastTimeClockType();
+      const shouldClockOut = lastType !== 'clock_out' && lastType !== null;
+      return shouldClockOut;
+    } catch (error) {
+      console.error('[PowerMonitor] Error checking last time clock type:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 休憩中かどうかを判定
+   */
+  private async isOnBreak(): Promise<boolean> {
+    if (!this.freeeApiService) {
+      return false;
+    }
+
+    try {
+      const lastType = await this.freeeApiService.getLastTimeClockType();
+      return lastType === 'break_begin';
+    } catch (error) {
+      console.error('[PowerMonitor] Error checking if on break:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 退勤処理（休憩中の場合は先に休憩終了）
+   * 全ての退勤処理でこのメソッドを使用することで、統一的な処理を実現
+   */
+  private async executeClockOut(): Promise<void> {
+    if (!this.freeeApiService) {
+      throw new Error('FreeeApiService not available');
+    }
+
+    // 休憩中の場合は先に休憩終了
+    if (await this.isOnBreak()) {
+      await this.freeeApiService.timeClock('break_end');
+    }
+
+    // 退勤処理
+    await this.freeeApiService.timeClock('clock_out');
   }
 
   /**
@@ -27,18 +112,16 @@ export class PowerMonitorService {
   private setupShutdownHandler() {
     // PCシャットダウン時の処理
     powerMonitor.on('shutdown' as any, async (event: any) => {
-      console.log('[PowerMonitor] System shutdown detected');
 
+      // 通常の自動退勤設定をチェック（時間帯別は対象外）
       const config = this.configManager.getConfig();
       const autoClockOutEnabled = (config.app as any)?.autoTimeClock?.autoClockOutOnShutdown;
 
       if (!autoClockOutEnabled) {
-        console.log('[PowerMonitor] Auto clock-out on shutdown is disabled');
         return;
       }
 
       if (!this.freeeApiService) {
-        console.log('[PowerMonitor] FreeeApiService not available');
         return;
       }
 
@@ -49,15 +132,11 @@ export class PowerMonitorService {
       try {
         // 最後の打刻タイプを取得
         const lastType = await this.freeeApiService.getLastTimeClockType();
-        console.log('[PowerMonitor] Last time clock type:', lastType);
 
-        // 退勤していない場合は自動退勤
-        if (lastType !== 'clock_out') {
-          console.log('[PowerMonitor] Clocking out automatically before shutdown...');
-          await this.freeeApiService.timeClock('clock_out');
-          console.log('[PowerMonitor] Clock-out successful');
+        // 退勤していない場合は自動退勤（統一的な退勤処理を使用）
+        if (lastType !== 'clock_out' && lastType !== null) {
+          await this.executeClockOut();
         } else {
-          console.log('[PowerMonitor] Already clocked out, no action needed');
         }
       } catch (error) {
         console.error('[PowerMonitor] Failed to auto clock-out:', error);
@@ -98,7 +177,6 @@ export class PowerMonitorService {
     // freeeApiServiceが設定されたら、設定ファイルで有効になっている場合は自動開始
     const powerMonitorConfig = this.configManager.getPowerMonitorConfig();
     if (powerMonitorConfig.enabled && !this.isMonitoring) {
-      console.log('Auto-starting PowerMonitor based on saved config');
       this.startMonitoring();
     }
   }
@@ -115,7 +193,6 @@ export class PowerMonitorService {
 
   public startMonitoring(): boolean {
     if (this.isMonitoring) {
-      console.log('PowerMonitor is already running');
       return false;
     }
 
@@ -124,68 +201,82 @@ export class PowerMonitorService {
       return false;
     }
 
-    console.log('Starting PowerMonitor service...');
     this.isMonitoring = true;
 
-    // システムサスペンド時 → 休憩開始
+    // システムサスペンド時の統合処理
     powerMonitor.on('suspend', async () => {
-      console.log('System suspend detected - starting break');
+
+      // 優先度1: 時間帯別自動退勤のチェック
+      if (await this.shouldAutoClockOutBasedOnTime()) {
+        try {
+          await this.executeClockOut();
+          this.notifyRenderer('auto_clock_out_time_based');
+          return; // 退勤した場合は休憩開始処理をスキップ
+        } catch (error) {
+          console.error('[PowerMonitor] Failed to auto clock-out on suspend:', error);
+        }
+      }
+
+      // 優先度2: 自動休憩機能（時間帯別自動退勤が実行されなかった場合のみ）
       try {
         await this.freeeApiService!.timeClock('break_begin');
-        console.log('Break started successfully due to system suspend');
         this.notifyRenderer('break_started');
       } catch (error) {
-        console.error('Failed to start break on system suspend:', error);
+        console.error('[PowerMonitor] Failed to start break on system suspend:', error);
       }
     });
 
     // システムレジューム時 → 休憩終了
     powerMonitor.on('resume', async () => {
-      console.log('System resume detected - ending break');
       try {
         await this.freeeApiService!.timeClock('break_end');
-        console.log('Break ended successfully due to system resume');
         this.notifyRenderer('break_ended');
       } catch (error) {
-        console.error('Failed to end break on system resume:', error);
+        console.error('[PowerMonitor] Failed to end break on system resume:', error);
       }
     });
 
-    // スクリーンロック時 → 休憩開始
+    // スクリーンロック時の統合処理
     powerMonitor.on('lock-screen', async () => {
-      console.log('Screen lock detected - starting break');
+
+      // 優先度1: 時間帯別自動退勤のチェック
+      if (await this.shouldAutoClockOutBasedOnTime()) {
+        try {
+          await this.executeClockOut();
+          this.notifyRenderer('auto_clock_out_time_based');
+          return; // 退勤した場合は休憩開始処理をスキップ
+        } catch (error) {
+          console.error('[PowerMonitor] Failed to auto clock-out on lock-screen:', error);
+        }
+      }
+
+      // 優先度2: 自動休憩機能（時間帯別自動退勤が実行されなかった場合のみ）
       try {
         await this.freeeApiService!.timeClock('break_begin');
-        console.log('Break started successfully due to screen lock');
         this.notifyRenderer('break_started');
       } catch (error) {
-        console.error('Failed to start break on screen lock:', error);
+        console.error('[PowerMonitor] Failed to start break on screen lock:', error);
       }
     });
 
     // スクリーンアンロック時 → 休憩終了
     powerMonitor.on('unlock-screen', async () => {
-      console.log('Screen unlock detected - ending break');
       try {
         await this.freeeApiService!.timeClock('break_end');
-        console.log('Break ended successfully due to screen unlock');
         this.notifyRenderer('break_ended');
       } catch (error) {
-        console.error('Failed to end break on screen unlock:', error);
+        console.error('[PowerMonitor] Failed to end break on screen unlock:', error);
       }
     });
 
-    console.log('PowerMonitor service started successfully');
     return true;
   }
 
   public stopMonitoring(): boolean {
     if (!this.isMonitoring) {
-      console.log('PowerMonitor is not running');
       return false;
     }
 
-    console.log('Stopping PowerMonitor service...');
     
     // 全てのイベントリスナーを削除
     powerMonitor.removeAllListeners('suspend');
@@ -194,7 +285,6 @@ export class PowerMonitorService {
     powerMonitor.removeAllListeners('unlock-screen');
 
     this.isMonitoring = false;
-    console.log('PowerMonitor service stopped successfully');
     return true;
   }
 
@@ -213,30 +303,39 @@ export class PowerMonitorService {
     const autoClockInEnabled = (config.app as any)?.autoTimeClock?.autoClockInOnStartup;
 
     if (!autoClockInEnabled) {
-      console.log('[PowerMonitor] Auto clock-in on startup is disabled');
       return;
     }
 
+    // 土日チェック
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    if (isWeekend) {
+      const autoTimeClockConfig = this.configManager.getAutoTimeClockConfig();
+      // disableWeekendsのデフォルト値はtrue（土日無効）
+      const shouldDisableWeekends = autoTimeClockConfig.disableWeekends ?? true;
+
+      if (shouldDisableWeekends) {
+        return;
+      }
+    }
+
     if (!this.freeeApiService) {
-      console.log('[PowerMonitor] FreeeApiService not available for auto clock-in');
       return;
     }
 
     try {
       // 最後の打刻タイプを取得
       const lastType = await this.freeeApiService.getLastTimeClockType();
-      console.log('[PowerMonitor] Last time clock type on startup:', lastType);
 
       // 出勤していない場合は自動出勤
       if (lastType === null) {
-        console.log('[PowerMonitor] Clocking in automatically on startup...');
         await this.freeeApiService.timeClock('clock_in');
-        console.log('[PowerMonitor] Clock-in successful');
 
         // レンダラープロセスに通知
         this.notifyRenderer('auto_clock_in');
       } else {
-        console.log('[PowerMonitor] Already clocked in, no action needed');
       }
     } catch (error) {
       console.error('[PowerMonitor] Failed to auto clock-in on startup:', error);

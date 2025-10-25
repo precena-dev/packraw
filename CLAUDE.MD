@@ -559,7 +559,45 @@ freee-webview-app/
   - src/renderer/components/ApiModePanel.tsx（日付選択ハンドラー）
   - src/renderer/index.css（カレンダースタイル追加、約150行）
 
-### Phase 10: 次の実装予定 📋計画中
+### Phase 10: 時間帯別自動退勤と土日制御機能 ✅完了 (2025-10-25)
+
+#### 1. 時間帯別スリープ自動退勤機能 ✅実装済み
+- **指定時刻以降の自動退勤**
+  - デフォルト17:00以降にスリープ・サスペンドで自動退勤
+  - 設定画面で時刻変更可能
+  - シャットダウンは既存設定で制御（重複回避）
+
+- **実装ファイル**
+  - src/main/powerMonitor.ts（時間判定ロジック追加）
+  - src/main/config.ts（autoClockOutAfterTime設定）
+  - src/renderer/components/SettingsModal.tsx（設定UI追加）
+
+#### 2. 土日打刻制御機能 ✅実装済み
+- **デフォルトで土日打刻無効化**
+  - 当日の打刻・編集のみ制限
+  - 過去の土日記録は編集可能（休日出勤の修正対応）
+  - 設定画面でON/OFF切り替え可能
+
+- **設定の永続化**
+  - デフォルト: ON（土日打刻無効）
+  - OFFにした場合のみ設定ファイルに保存
+  - 設定がない場合はデフォルトON
+
+- **実装ファイル**
+  - src/main/freeeApi.ts（isWeekend、isWeekendClockDisabled追加）
+  - src/main/breakScheduler.ts（土日チェック追加）
+  - src/main/powerMonitor.ts（起動時自動出勤の土日チェック）
+
+#### 3. UI/UX改善 ✅実装済み
+- **休憩時間設定の自動保存**
+  - 保存ボタン削除、onBlurで自動保存
+  - すべての時刻・数値設定が自動保存に統一
+
+- **エラーメッセージの自動クリア**
+  - 日付変更時にエラーメッセージを自動削除
+  - handleDateChange、handleDateSelectに処理追加
+
+### Phase 11: 次の実装予定 📋計画中
 
 #### 1. その他の拡張機能
 - **PCイベント連携**

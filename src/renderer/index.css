@@ -968,3 +968,237 @@ html, body, #root {
 .calendar-close-button:hover {
   background: #2563eb;
 }
+
+
+/* コンパクト版の休憩時間入力スタイル */
+.break-records-list-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.break-record-item-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: #f9fafb;
+  border-radius: 4px;
+}
+
+.break-number-compact {
+  font-size: 12px;
+  color: #666;
+  min-width: 16px;
+}
+
+.break-time-inputs-compact {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.time-edit-input-compact {
+  padding: 4px 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  width: 80px;
+}
+
+.time-edit-input-compact:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.time-separator-compact {
+  color: #666;
+  font-size: 12px;
+}
+
+.empty-break-message-compact {
+  padding: 8px;
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  background: #f9fafb;
+  border-radius: 4px;
+}
+
+/* CreateWorkRecordModal専用のボタンスタイル */
+.modal-add-break-button {
+  padding: 6px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.modal-add-break-button:hover:not(:disabled) {
+  background: #059669;
+}
+
+.modal-add-break-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-add-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.break-delete-button {
+  padding: 4px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.break-delete-button:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.break-delete-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.break-delete-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* DeleteWorkRecordModal のスタイル */
+.modal-warning-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.warning-icon {
+  width: 24px;
+  height: 24px;
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.warning-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #92400e;
+  margin: 0;
+}
+
+.modal-button-danger {
+  background: #ef4444;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.modal-button-danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.modal-button-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ErrorModal のスタイル */
+.modal-error-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.modal-error-icon {
+  width: 48px;
+  height: 48px;
+  color: #ef4444;
+}
+
+.modal-error-text {
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #374151;
+  margin: 0;
+}
+
+/* エラー詳細アコーディオン */
+.error-detail-accordion {
+  margin-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 12px;
+}
+
+.error-detail-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.error-detail-toggle:hover {
+  background: #f3f4f6;
+}
+
+.error-detail-label {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.error-detail-chevron {
+  width: 16px;
+  height: 16px;
+  color: #9ca3af;
+  transition: transform 0.2s;
+}
+
+.error-detail-chevron.open {
+  transform: rotate(180deg);
+}
+
+.error-detail-content {
+  margin-top: 8px;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  animation: slideDown 0.2s ease-out;
+}
+
+.error-detail-message {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #991b1b;
+  margin: 0;
+  word-break: break-word;
+}

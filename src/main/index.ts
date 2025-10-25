@@ -292,7 +292,7 @@ ipcMain.handle('freee-api-init', () => {
       refreshTokenExpiresAt: config.api.refreshTokenExpiresAt,
       companyId: config.api.companyId,
       employeeId: config.api.employeeId,
-    });
+    }, configManager);
     
     // PowerMonitorService に FreeeApiService を設定
     if (powerMonitorService) {
@@ -505,6 +505,18 @@ ipcMain.handle('freee-api-update-work-record', async (_event, date: string, brea
   if (!freeeApiService) throw new Error('API service not initialized');
   try {
     const result = await freeeApiService.updateWorkRecord(date, breakRecords, clockInAt, clockOutAt);
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
+});
+
+ipcMain.handle('freee-api-delete-work-record', async (_event, date: string) => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  try {
+    const result = await freeeApiService.deleteWorkRecord(date);
     saveTokensToConfig();
     return result;
   } catch (error) {

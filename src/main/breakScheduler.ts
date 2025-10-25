@@ -237,6 +237,14 @@ export class BreakScheduler {
       return;
     }
 
+    // 土日チェック（FreeeApiServiceのtimeClockで土日チェックされるが、ここでも事前チェック）
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      console.log('[BreakScheduler] Weekend detected, skipping auto break');
+      return;
+    }
+
     if (!this.config.enabled) {
       return;
     }
@@ -247,8 +255,6 @@ export class BreakScheduler {
     if (this.lastCheckedDate !== today) {
       this.generateTodaySchedule();
     }
-
-    const now = new Date();
 
     for (const schedule of this.todaySchedule) {
       if (schedule.executed) {
