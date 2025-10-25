@@ -513,6 +513,18 @@ ipcMain.handle('freee-api-update-work-record', async (_event, date: string, brea
   }
 });
 
+ipcMain.handle('freee-api-delete-work-record', async (_event, date: string) => {
+  if (!freeeApiService) throw new Error('API service not initialized');
+  try {
+    const result = await freeeApiService.deleteWorkRecord(date);
+    saveTokensToConfig();
+    return result;
+  } catch (error) {
+    saveTokensToConfig();
+    throw error;
+  }
+});
+
 // BreakScheduler関連のハンドラー
 ipcMain.handle('break-scheduler-get-config', () => {
   if (!breakScheduler) throw new Error('Break scheduler not initialized');

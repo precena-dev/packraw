@@ -67,8 +67,16 @@ axios.interceptors.response.use(
 // axiosのcreateメソッドをオーバーライドした後でFreeeApiServiceをインポート
 import { FreeeApiService } from './src/main/freeeApi';
 
-// config.jsonを読み込む
-const configPath = path.join(__dirname, '..', 'config.json');
+// config.jsonを読み込む（新しいパス）
+const os = require('os');
+const configPath = path.join(os.homedir(), 'Library', 'Application Support', 'PackRaw', 'freee-app-config.json');
+console.log('Config path:', configPath);
+
+if (!fs.existsSync(configPath)) {
+  console.error('❌ Config file not found at:', configPath);
+  process.exit(1);
+}
+
 const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
 // FreeeApiServiceのインスタンスを作成
@@ -150,14 +158,270 @@ async function testGetEmployeeInfo() {
   }
 }
 
+// 生のfreee API work_recordを直接叩くテスト
+async function testUpdateWorkRecord() {
+  console.log('\n========================================');
+  console.log('Testing RAW freee API - work_records');
+  console.log('========================================\n');
+
+  // テスト用の日付（過去の日付を指定）
+  //const testDate = '2024-10-10'; // 適切な過去の日付に変更してください
+  const testDate = '2025-10-10'; // 適切な過去の日付に変更してください
+  console.log(`📅 テスト日付: ${testDate}`);
+  console.log(`📍 Employee ID: ${config.api.employeeId}`);
+  console.log(`📍 Company ID: ${config.api.companyId}\n`);
+
+  // APIクライアントの設定（既存のaxiosインスタンスを使用）
+  const apiClient = axios.create({
+    baseURL: 'https://api.freee.co.jp',
+    headers: {
+      'Authorization': `Bearer ${config.api.accessToken}`,
+      'Content-Type': 'application/json',
+    }
+  });
+
+  try {
+    // 1. 現在の勤怠記録を取得（GET）
+    console.log('1️⃣  GET /hr/api/v1/employees/{id}/work_records/{date}');
+    console.log('----------------------------------------');
+
+    let getResponse;
+    try {
+      getResponse = await apiClient.get(
+        `/hr/api/v1/employees/${config.api.employeeId}/work_records/${testDate}?company_id=${config.api.companyId}`
+      );
+      console.log('✅ 取得成功');
+      console.log('レスポンス（主要項目）:');
+      console.log(`  - date: ${getResponse.data.date}`);
+      console.log(`  - clock_in_at: ${getResponse.data.clock_in_at || 'null'}`);
+      console.log(`  - clock_out_at: ${getResponse.data.clock_out_at || 'null'}`);
+      console.log(`  - break_records: ${getResponse.data.break_records?.length || 0}件`);
+      console.log(`  - is_editable: ${getResponse.data.is_editable}`);
+      console.log(`  - day_pattern: ${getResponse.data.day_pattern}`);
+    } catch (error: any) {
+      console.error('❌ エラー:', error.response?.status, error.response?.statusText);
+      if (error.response?.data) {
+        console.error('エラー詳細:', JSON.stringify(error.response.data, null, 2));
+      }
+      return;
+    }
+    console.log();
+
+    // 2. さまざまなパラメータパターンをテスト
+    console.log(`2️⃣  PUT /hr/api/v1/employees/${config.api.employeeId}/work_records/${testDate}?company_id=${config.api.companyId}`);
+    console.log('----------------------------------------');
+
+    // テストケース配列
+    const testCases = [
+      {
+        name: 'A. 最小限のパラメータ（company_idのみ）',
+        body: {
+          company_id: config.api.companyId
+        }
+      },
+      {
+        name: 'B. 出勤時刻のみ（HH:mm形式）',
+        body: {
+          company_id: config.api.companyId,
+          clock_in_at: '09:00'
+        }
+      },
+      {
+        name: 'C. 出勤時刻のみ（HH:mm:ss形式）',
+        body: {
+          company_id: config.api.companyId,
+          clock_in_at: '09:00:00'
+        }
+      },
+      {
+        name: 'D. 出勤時刻のみ（YYYY-MM-DD HH:mm:ss形式）',
+        body: {
+          company_id: config.api.companyId,
+          clock_in_at: `${testDate} 09:00:00`
+        }
+      },
+      {
+        name: 'E. 出勤・退勤時刻（HH:mm形式）',
+        body: {
+          company_id: config.api.companyId,
+          clock_in_at: '09:00',
+          clock_out_at: '18:00'
+        }
+      },
+      {
+        name: 'F. 空のbreak_recordsあり',
+        body: {
+          company_id: config.api.companyId,
+          clock_in_at: `${testDate} 08:30`,
+          clock_out_at: `${testDate} 17:30`
+        }
+      },
+      {
+        name: 'G. 休憩記録あり（HH:mm形式）',
+        body: {
+          company_id: config.api.companyId,
+          clock_in_at: `${testDate} 08:30`,
+          clock_out_at: `${testDate} 17:30`,
+          break_records: [
+            {
+              clock_in_at: `${testDate} 12:00`,
+              clock_out_at: `${testDate} 13:00`
+            }
+          ]
+        }
+      },
+      {
+        name: 'H. 休憩記録あり（HH:mm:ss形式）',
+        body: {
+          company_id: config.api.companyId,
+          clock_in_at: '09:00',
+          clock_out_at: '18:00',
+          break_records: [
+            {
+              clock_in_at: '12:00:00',
+              clock_out_at: '13:00:00'
+            }
+          ]
+        }
+      },
+      {
+        name: 'I. 複数の休憩記録',
+        body: {
+          company_id: config.api.companyId,
+          clock_in_at: '09:00',
+          clock_out_at: '18:00',
+          break_records: [
+            {
+              clock_in_at: '10:30',
+              clock_out_at: '10:45'
+            },
+            {
+              clock_in_at: '12:00',
+              clock_out_at: '13:00'
+            },
+            {
+              clock_in_at: '15:00',
+              clock_out_at: '15:15'
+            }
+          ]
+        }
+      },
+      {
+        name: 'J. 退勤時刻なしで休憩記録あり（エラーになる可能性）',
+        body: {
+          company_id: config.api.companyId,
+          clock_in_at: '09:00',
+          break_records: [
+            {
+              clock_in_at: '12:00',
+              clock_out_at: '13:00'
+            }
+          ]
+        }
+      }
+    ];
+
+    // 各テストケースを実行（コメントアウトしたい場合は以下の行を変更）
+    //const testCasesToRun = testCases.slice(0, 5); // 最初の5個だけ実行（全部実行したい場合は testCases を使用）
+    const testCasesToRun = [testCases[6]]; // 最初の5個だけ実行（全部実行したい場合は testCases を使用）
+
+    for (const testCase of testCasesToRun) {
+      console.log(`\n📝 テストケース: ${testCase.name}`);
+      console.log('リクエストボディ:', JSON.stringify(testCase.body, null, 2));
+
+      //try {
+      //  const response = await apiClient.put(
+      //    `/hr/api/v1/employees/${config.api.employeeId}/work_records/${testDate}`,
+      //    testCase.body
+      //  );
+      //  console.log('✅ 成功');
+      //  console.log('レスポンス（主要項目）:');
+      //  console.log(`  - clock_in_at: ${response.data.clock_in_at || 'null'}`);
+      //  console.log(`  - clock_out_at: ${response.data.clock_out_at || 'null'}`);
+      //  console.log(`  - break_records: ${response.data.break_records?.length || 0}件`);
+      //  if (response.data.break_records?.length > 0) {
+      //    response.data.break_records.forEach((br: any, i: number) => {
+      //      console.log(`    ${i + 1}. ${br.clock_in_at} - ${br.clock_out_at}`);
+      //    });
+      //  }
+      //} catch (error: any) {
+      //  console.error('❌ エラー:', error.response?.status, error.response?.statusText);
+      //  if (error.response?.data) {
+      //    console.error('エラー詳細:', JSON.stringify(error.response.data, null, 2));
+      //  }
+      //}
+
+      // API制限を考慮して少し待機
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // 3. 最終的な勤怠記録を確認
+    console.log('\n3️⃣  最終的な勤怠記録を確認');
+    console.log('----------------------------------------');
+
+    try {
+      const finalResponse = await apiClient.get(
+        `/hr/api/v1/employees/${config.api.employeeId}/work_records/${testDate}?company_id=${config.api.companyId}`
+      );
+      console.log('最終的な勤怠記録:');
+      console.log(`  - clock_in_at: ${finalResponse.data.clock_in_at || 'null'}`);
+      console.log(`  - clock_out_at: ${finalResponse.data.clock_out_at || 'null'}`);
+      console.log(`  - break_records: ${finalResponse.data.break_records?.length || 0}件`);
+      if (finalResponse.data.break_records?.length > 0) {
+        console.log('  休憩記録詳細:');
+        finalResponse.data.break_records.forEach((br: any, i: number) => {
+          console.log(`    ${i + 1}. ${br.clock_in_at} - ${br.clock_out_at}`);
+        });
+      }
+    } catch (error: any) {
+      console.error('❌ エラー:', error.response?.status, error.response?.statusText);
+    }
+
+    // トークンがリフレッシュされた可能性があるので、config.jsonを更新
+    const currentConfig = freeeApi.getConfig();
+    if (currentConfig.accessToken !== config.api.accessToken ||
+        currentConfig.refreshToken !== config.api.refreshToken) {
+      saveConfigToFile();
+    }
+
+  } catch (error: any) {
+    console.log('\n❌ 予期しないエラー:', error.message);
+
+    // エラーが発生してもトークンがリフレッシュされた可能性があるので確認
+    const currentConfig = freeeApi.getConfig();
+    if (currentConfig.accessToken !== config.api.accessToken ||
+        currentConfig.refreshToken !== config.api.refreshToken) {
+      saveConfigToFile();
+    }
+
+    throw error;
+  }
+}
+
+// コマンドライン引数でどのテストを実行するか選択
+const testType = process.argv[2] || 'employee';
+
 // テストを実行
 console.log('Starting test...\n');
-testGetEmployeeInfo()
-  .then(() => {
-    console.log('\nTest completed successfully!');
-    process.exit(0);
-  })
-  .catch(() => {
-    console.log('\nTest failed!');
-    process.exit(1);
-  });
+
+if (testType === 'update') {
+  testUpdateWorkRecord()
+    .then(() => {
+      console.log('\nTest completed successfully!');
+      process.exit(0);
+    })
+    .catch(() => {
+      console.log('\nTest failed!');
+      process.exit(1);
+    });
+} else {
+  testGetEmployeeInfo()
+    .then(() => {
+      console.log('\nTest completed successfully!');
+      process.exit(0);
+    })
+    .catch(() => {
+      console.log('\nTest failed!');
+      process.exit(1);
+    });
+}

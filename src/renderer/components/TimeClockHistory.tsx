@@ -1,5 +1,3 @@
-import React, { useState } from 'react';
-
 interface TimeClockHistoryProps {
   todayTimeClocks: any[];
   onEditBreak?: (breakBegin: any, breakEnd: any) => void;

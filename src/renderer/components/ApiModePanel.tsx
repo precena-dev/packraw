@@ -6,6 +6,8 @@ import { SettingsModal } from './SettingsModal';
 import { EditBreakModal } from './EditBreakModal';
 import { AddBreakModal } from './AddBreakModal';
 import { EditClockTimeModal } from './EditClockTimeModal';
+import { CreateWorkRecordModal } from './CreateWorkRecordModal';
+import { DeleteWorkRecordModal } from './DeleteWorkRecordModal';
 
 interface TimeClockButtonState {
   clockIn: boolean;
@@ -34,6 +36,8 @@ export const ApiModePanel: React.FC = () => {
   const [isEditBreakModalOpen, setIsEditBreakModalOpen] = useState(false);
   const [isAddBreakModalOpen, setIsAddBreakModalOpen] = useState(false);
   const [isEditClockTimeModalOpen, setIsEditClockTimeModalOpen] = useState(false);
+  const [isCreateWorkRecordModalOpen, setIsCreateWorkRecordModalOpen] = useState(false);
+  const [isDeleteWorkRecordModalOpen, setIsDeleteWorkRecordModalOpen] = useState(false);
   const [editingBreak, setEditingBreak] = useState<{ begin: any; end: any } | null>(null);
   const [editingClockTime, setEditingClockTime] = useState<{ data: any; type: 'clock_in' | 'clock_out' } | null>(null);
   const [breakScheduleConfig, setBreakScheduleConfig] = useState<any>(null);
@@ -763,6 +767,76 @@ export const ApiModePanel: React.FC = () => {
     }
   };
 
+  // 完全な勤怠記録作成の保存処理
+  const handleCreateWorkRecord = async (clockIn: string, clockOut: string, breakTimes: { start: string; end: string }[]) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 時刻を日本時間のISO 8601形式に変換
+      const formatToJSTISO = (dateStr: string, timeStr: string): string => {
+        const [hour, minute] = timeStr.split(':').map(Number);
+        // 直接日本時間として扱う（+09:00を付けるだけ）
+        const formattedTime = `${dateStr}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+09:00`;
+        return formattedTime;
+      };
+
+      const clockInAt = formatToJSTISO(selectedDate, clockIn);
+      const clockOutAt = formatToJSTISO(selectedDate, clockOut);
+
+      // 休憩時間のフォーマット
+      const breakRecords = breakTimes.map(bt => ({
+        clock_in_at: formatToJSTISO(selectedDate, bt.start),
+        clock_out_at: formatToJSTISO(selectedDate, bt.end)
+      }));
+
+      // APIを呼び出して勤怠記録を更新
+      await window.electronAPI.freeeApi.updateWorkRecord(
+        selectedDate,
+        breakRecords,
+        clockInAt,
+        clockOutAt
+      );
+
+      // 画面を更新
+      await updateTimeClocks(selectedDate);
+
+      // モーダルを閉じる
+      setIsCreateWorkRecordModalOpen(false);
+    } catch (err: any) {
+      console.error('Failed to create work record:', err);
+      throw new Error(err.message || '勤怠記録の作成に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 新規勤怠記録作成ボタンを押した時の処理
+  const handleOpenCreateWorkRecord = () => {
+    setIsCreateWorkRecordModalOpen(true);
+  };
+
+  // 勤怠記録削除の処理
+  const handleDeleteWorkRecord = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await window.electronAPI.freeeApi.deleteWorkRecord(selectedDate);
+
+      // 削除後、画面を更新
+      setTodayTimeClocks([]);
+      await updateTimeClocks(selectedDate);
+
+      // モーダルを閉じる
+      setIsDeleteWorkRecordModalOpen(false);
+    } catch (err: any) {
+      console.error('Failed to delete work record:', err);
+      setError(err.message || '勤怠記録の削除に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isApiInitialized) {
     return (
@@ -832,12 +906,44 @@ export const ApiModePanel: React.FC = () => {
         </button>
       </div>
       
-      {isToday && (
+      {isToday ? (
         <WorkTimeSection
           loading={loading}
           buttonStates={buttonStates}
           onTimeClock={handleTimeClock}
         />
+      ) : (
+        // 過去日の場合
+        <div className="control-panel">
+          {todayTimeClocks.length === 0 ? (
+            // 記録がない場合、勤怠登録ボタンを表示
+            <button
+              onClick={handleOpenCreateWorkRecord}
+              disabled={loading}
+              className="clock-button btn-start"
+              style={{ gridColumn: 'span 2' }}
+            >
+              <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              勤怠の登録
+            </button>
+          ) : (
+            // 記録がある場合、削除ボタンを表示
+            <button
+              onClick={() => setIsDeleteWorkRecordModalOpen(true)}
+              disabled={loading}
+              className="clock-button btn-end"
+              style={{ gridColumn: 'span 2' }}
+            >
+              <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              勤怠を未入力にする
+            </button>
+          )}
+        </div>
       )}
 
       <TimeClockHistory
@@ -902,6 +1008,27 @@ export const ApiModePanel: React.FC = () => {
             setIsEditClockTimeModalOpen(false);
             setEditingClockTime(null);
           }}
+        />
+      )}
+
+      {/* 完全な勤怠記録作成モーダル */}
+      {isCreateWorkRecordModalOpen && (
+        <CreateWorkRecordModal
+          date={selectedDate}
+          onSave={handleCreateWorkRecord}
+          onCancel={() => {
+            setIsCreateWorkRecordModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* 勤怠記録削除確認モーダル */}
+      {isDeleteWorkRecordModalOpen && (
+        <DeleteWorkRecordModal
+          date={selectedDate}
+          onConfirm={handleDeleteWorkRecord}
+          onCancel={() => setIsDeleteWorkRecordModalOpen(false)}
+          loading={loading}
         />
       )}
     </div>

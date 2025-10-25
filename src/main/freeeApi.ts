@@ -670,4 +670,24 @@ export class FreeeApiService {
     console.log('Work record updated:', response.data);
     return response.data;
   }
+
+  /**
+   * 勤怠記録を削除
+   */
+  async deleteWorkRecord(date: string): Promise<any> {
+    console.log(`Deleting work record for ${date}`);
+
+    // 勤怠記録を削除（DELETE メソッド）
+    const response = await this.axiosInstance.delete(
+      `/hr/api/v1/employees/${this.config.employeeId}/work_records/${date}`,
+      {
+        params: {
+          company_id: this.config.companyId
+        }
+      }
+    );
+
+    console.log('Work record deleted:', response.data);
+    return response.data;
+  }
 }
