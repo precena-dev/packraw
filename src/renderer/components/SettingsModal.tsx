@@ -10,6 +10,11 @@ interface BreakScheduleConfig {
 interface AutoTimeClockConfig {
   autoClockInOnStartup: boolean;
   autoClockOutOnShutdown: boolean;
+  autoClockOutAfterTime?: {
+    enabled: boolean;
+    time: string;
+  };
+  disableWeekends?: boolean;
 }
 
 interface SettingsModalProps {
@@ -41,11 +46,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [breakStartTime, setBreakStartTime] = useState('12:00');
   const [breakEndTime, setBreakEndTime] = useState('13:00');
   const [randomOffset, setRandomOffset] = useState(5);
-  const [isSavingBreak, setIsSavingBreak] = useState(false);
 
   // 自動出勤・退勤設定のローカルステート
   const [autoClockInOnStartup, setAutoClockInOnStartup] = useState(false);
   const [autoClockOutOnShutdown, setAutoClockOutOnShutdown] = useState(false);
+
+  // 時間帯別自動退勤設定のローカルステート
+  const [autoClockOutAfterTimeEnabled, setAutoClockOutAfterTimeEnabled] = useState(false);
+  const [autoClockOutAfterTime, setAutoClockOutAfterTime] = useState('17:00');
+
+  // 土日打刻無効化設定のローカルステート
+  const [disableWeekends, setDisableWeekends] = useState(true);
 
   // 設定ファイルパスを取得
   useEffect(() => {
@@ -71,6 +82,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (isOpen && autoTimeClockConfig) {
       setAutoClockInOnStartup(autoTimeClockConfig.autoClockInOnStartup);
       setAutoClockOutOnShutdown(autoTimeClockConfig.autoClockOutOnShutdown);
+
+      // 時間帯別自動退勤設定
+      if (autoTimeClockConfig.autoClockOutAfterTime) {
+        setAutoClockOutAfterTimeEnabled(autoTimeClockConfig.autoClockOutAfterTime.enabled);
+        setAutoClockOutAfterTime(autoTimeClockConfig.autoClockOutAfterTime.time);
+      }
+
+      // 土日打刻無効化設定
+      setDisableWeekends(autoTimeClockConfig.disableWeekends !== false);
     }
   }, [isOpen, autoTimeClockConfig]);
 
@@ -103,27 +123,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleToggleBreakSchedule = async () => {
     if (!onUpdateBreakSchedule) return;
 
-    setIsSavingBreak(true);
     try {
       await onUpdateBreakSchedule({ enabled: !breakEnabled });
       setBreakEnabled(!breakEnabled);
-    } finally {
-      setIsSavingBreak(false);
+    } catch (error) {
+      console.error('Failed to toggle break schedule:', error);
     }
   };
 
-  const handleSaveBreakSchedule = async () => {
-    if (!onUpdateBreakSchedule) return;
+  const handleBreakStartTimeChange = async (newTime: string) => {
+    if (!onUpdateBreakSchedule || !breakEnabled) return;
 
-    setIsSavingBreak(true);
+    try {
+      await onUpdateBreakSchedule({
+        breakStartTime: newTime,
+        breakEndTime,
+        randomOffsetMinutes: randomOffset
+      });
+    } catch (error) {
+      console.error('Failed to update break start time:', error);
+    }
+  };
+
+  const handleBreakEndTimeChange = async (newTime: string) => {
+    if (!onUpdateBreakSchedule || !breakEnabled) return;
+
+    try {
+      await onUpdateBreakSchedule({
+        breakStartTime,
+        breakEndTime: newTime,
+        randomOffsetMinutes: randomOffset
+      });
+    } catch (error) {
+      console.error('Failed to update break end time:', error);
+    }
+  };
+
+  const handleRandomOffsetChange = async (newOffset: number) => {
+    if (!onUpdateBreakSchedule || !breakEnabled) return;
+
     try {
       await onUpdateBreakSchedule({
         breakStartTime,
         breakEndTime,
-        randomOffsetMinutes: randomOffset
+        randomOffsetMinutes: newOffset
       });
-    } finally {
-      setIsSavingBreak(false);
+    } catch (error) {
+      console.error('Failed to update random offset:', error);
     }
   };
 
@@ -146,6 +192,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setAutoClockOutOnShutdown(!autoClockOutOnShutdown);
     } catch (error) {
       console.error('Failed to toggle auto clock-out on shutdown:', error);
+    }
+  };
+
+  const handleToggleAutoClockOutAfterTime = async () => {
+    if (!onUpdateAutoTimeClock) return;
+
+    try {
+      const newValue = !autoClockOutAfterTimeEnabled;
+      await onUpdateAutoTimeClock({
+        autoClockOutAfterTime: {
+          enabled: newValue,
+          time: autoClockOutAfterTime
+        }
+      });
+      setAutoClockOutAfterTimeEnabled(newValue);
+    } catch (error) {
+      console.error('Failed to toggle auto clock-out after time:', error);
+    }
+  };
+
+  const handleUpdateAutoClockOutTime = async () => {
+    if (!onUpdateAutoTimeClock) return;
+
+    try {
+      await onUpdateAutoTimeClock({
+        autoClockOutAfterTime: {
+          enabled: autoClockOutAfterTimeEnabled,
+          time: autoClockOutAfterTime
+        }
+      });
+    } catch (error) {
+      console.error('Failed to update auto clock-out time:', error);
+    }
+  };
+
+  const handleToggleDisableWeekends = async () => {
+    if (!onUpdateAutoTimeClock) return;
+
+    try {
+      const newValue = !disableWeekends;
+      await onUpdateAutoTimeClock({ disableWeekends: newValue });
+      setDisableWeekends(newValue);
+    } catch (error) {
+      console.error('Failed to toggle disable weekends:', error);
     }
   };
 
@@ -176,7 +266,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="setting-item-control">
                   <button
                     onClick={handleToggleBreakSchedule}
-                    disabled={isSavingBreak}
                     className={`setting-toggle ${breakEnabled ? 'enabled' : 'disabled'}`}
                   >
                     <div className="setting-toggle-track">
@@ -200,7 +289,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="time"
                     value={breakStartTime}
                     onChange={(e) => setBreakStartTime(e.target.value)}
-                    disabled={!breakEnabled || isSavingBreak}
+                    onBlur={(e) => handleBreakStartTimeChange(e.target.value)}
+                    disabled={!breakEnabled}
                     style={{
                       padding: '6px 10px',
                       border: '1px solid #ddd',
@@ -217,7 +307,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="time"
                     value={breakEndTime}
                     onChange={(e) => setBreakEndTime(e.target.value)}
-                    disabled={!breakEnabled || isSavingBreak}
+                    onBlur={(e) => handleBreakEndTimeChange(e.target.value)}
+                    disabled={!breakEnabled}
                     style={{
                       padding: '6px 10px',
                       border: '1px solid #ddd',
@@ -234,7 +325,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="number"
                     value={randomOffset}
                     onChange={(e) => setRandomOffset(Number(e.target.value))}
-                    disabled={!breakEnabled || isSavingBreak}
+                    onBlur={(e) => handleRandomOffsetChange(Number(e.target.value))}
+                    disabled={!breakEnabled}
                     min="0"
                     max="30"
                     style={{
@@ -249,23 +341,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
                   <span style={{ fontSize: '13px', color: !breakEnabled ? '#999' : '#666' }}>±分</span>
                 </div>
-                <button
-                  onClick={handleSaveBreakSchedule}
-                  disabled={!breakEnabled || isSavingBreak}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: !breakEnabled ? '#ccc' : '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '13px',
-                    cursor: (!breakEnabled || isSavingBreak) ? 'not-allowed' : 'pointer',
-                    opacity: (!breakEnabled || isSavingBreak) ? 0.6 : 1,
-                    marginTop: '8px'
-                  }}
-                >
-                  {isSavingBreak ? '保存中...' : '時刻設定を保存'}
-                </button>
               </div>
               <p className="setting-detail-note" style={{ marginTop: '12px', fontSize: '12px', color: !breakEnabled ? '#999' : '#666' }}>
                 ランダム誤差により、設定時刻の前後数分のランダムなタイミングで打刻されます
@@ -276,6 +351,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* 自動出勤・退勤機能 */}
           <div className="setting-section">
             <h3 className="setting-section-title">PC連動自動/出退勤打刻設定</h3>
+
+            {/* 土日打刻無効化 */}
+            <div className="setting-item">
+              <div className="setting-item-content">
+                <div className="setting-item-label">
+                  <span className="setting-item-name">土日の打刻を<br/>無効化</span>
+                </div>
+                <div className="setting-item-control">
+                  <button
+                    onClick={handleToggleDisableWeekends}
+                    className={`setting-toggle ${disableWeekends ? 'enabled' : 'disabled'}`}
+                  >
+                    <div className="setting-toggle-track">
+                      <div className="setting-toggle-thumb"></div>
+                    </div>
+                    <span className="setting-toggle-label">
+                      {disableWeekends ? '有効' : '無効'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* アプリ起動時停止時の自動打刻 */}
             <div className="setting-item">
@@ -313,6 +410,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {autoClockOutOnShutdown ? '有効' : '無効'}
                     </span>
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 時間帯別スリープ自動退勤機能 */}
+          <div className="setting-section">
+            <h3 className="setting-section-title">時間帯別スリープ自動退勤機能</h3>
+
+            <div className="setting-item">
+              <div className="setting-item-content">
+                <div className="setting-item-label">
+                  <span className="setting-item-name">指定時刻以降の<br/>スリープ自動退勤</span>
+                </div>
+                <div className="setting-item-control">
+                  <button
+                    onClick={handleToggleAutoClockOutAfterTime}
+                    className={`setting-toggle ${autoClockOutAfterTimeEnabled ? 'enabled' : 'disabled'}`}
+                  >
+                    <div className="setting-toggle-track">
+                      <div className="setting-toggle-thumb"></div>
+                    </div>
+                    <span className="setting-toggle-label">
+                      {autoClockOutAfterTimeEnabled ? '有効' : '無効'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 時刻設定 */}
+            <div className="setting-item">
+              <div className="setting-item-content">
+                <div className="setting-item-label">
+                  <span className="setting-item-name">自動退勤開始時刻</span>
+                </div>
+                <div className="setting-item-control">
+                  <input
+                    type="time"
+                    value={autoClockOutAfterTime}
+                    onChange={(e) => setAutoClockOutAfterTime(e.target.value)}
+                    onBlur={handleUpdateAutoClockOutTime}
+                    disabled={!autoClockOutAfterTimeEnabled}
+                    className="setting-input"
+                  />
                 </div>
               </div>
             </div>

@@ -137,16 +137,44 @@ export class ConfigManager {
 
   // AutoTimeClock設定を取得
   getAutoTimeClockConfig() {
-    return (this.store as any).get('app.autoTimeClock', {
+    const config = (this.store as any).get('app.autoTimeClock', {
       autoClockInOnStartup: false,
-      autoClockOutOnShutdown: false
+      autoClockOutOnShutdown: false,
+      autoClockOutAfterTime: {
+        enabled: false,
+        time: '17:00'  // デフォルト17:00
+      }
     });
+
+    // disableWeekendsが未設定の場合はtrueをデフォルトとする（設定ファイルには保存しない）
+    if (config.disableWeekends === undefined) {
+      config.disableWeekends = true;
+    }
+
+    return config;
   }
 
   // AutoTimeClock設定を更新
-  updateAutoTimeClockConfig(config: { autoClockInOnStartup?: boolean; autoClockOutOnShutdown?: boolean }) {
+  updateAutoTimeClockConfig(config: {
+    autoClockInOnStartup?: boolean;
+    autoClockOutOnShutdown?: boolean;
+    autoClockOutAfterTime?: {
+      enabled?: boolean;
+      time?: string;
+    };
+    disableWeekends?: boolean;
+  }) {
     const currentConfig = this.getAutoTimeClockConfig();
     const newConfig = { ...currentConfig, ...config };
+
+    // autoClockOutAfterTimeがある場合は深いマージを行う
+    if (config.autoClockOutAfterTime) {
+      newConfig.autoClockOutAfterTime = {
+        ...currentConfig.autoClockOutAfterTime,
+        ...config.autoClockOutAfterTime
+      };
+    }
+
     (this.store as any).set('app.autoTimeClock', newConfig);
     console.log('AutoTimeClock config updated:', newConfig);
     return newConfig;

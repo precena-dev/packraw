@@ -48,9 +48,11 @@ export class FreeeApiService {
   private config: FreeeConfig;
   private authWindow: BrowserWindow | null = null;
   private refreshAttempts: number = 0;
+  private configManager: any; // ConfigManagerインスタンスへの参照
 
-  constructor(config: FreeeConfig) {
+  constructor(config: FreeeConfig, configManager?: any) {
     this.config = config;
+    this.configManager = configManager;
     this.axiosInstance = axios.create({
       baseURL: 'https://api.freee.co.jp/',
       headers: {
@@ -116,6 +118,27 @@ export class FreeeApiService {
     const utcTime = date.getTime();
     const jstTime = new Date(utcTime + 9 * 60 * 60 * 1000);
     return jstTime.toISOString().split('T')[0];
+  }
+
+  /**
+   * 今日が週末（土日）かどうかを判定
+   */
+  private isWeekend(date: Date = new Date()): boolean {
+    const dayOfWeek = date.getDay();
+    return dayOfWeek === 0 || dayOfWeek === 6; // 0: 日曜日, 6: 土曜日
+  }
+
+  /**
+   * 土日打刻が無効化されているかチェック
+   */
+  private isWeekendClockDisabled(): boolean {
+    if (!this.configManager) {
+      return true; // configManagerがない場合はデフォルトで土日無効
+    }
+    const config = this.configManager.getAutoTimeClockConfig();
+    // disableWeekendsが未定義またはtrueの場合は無効化
+    // 明示的にfalseが設定されている場合のみ土日打刻を許可
+    return config.disableWeekends !== false;
   }
 
 
@@ -258,7 +281,13 @@ export class FreeeApiService {
 
   async timeClock(type: TimeClockType['type']): Promise<any> {
     const now = new Date();
-    
+
+    // 土日チェック
+    if (this.isWeekendClockDisabled() && this.isWeekend(now)) {
+      console.log(`[FreeeAPI] Weekend clock disabled. Skipping ${type} on weekend.`);
+      throw new Error('土日の打刻は無効化されています');
+    }
+
     const response = await this.axiosInstance.post(
       `/hr/api/v1/employees/${this.config.employeeId}/time_clocks`,
       {
@@ -578,13 +607,25 @@ export class FreeeApiService {
   ): Promise<any> {
     console.log('Updating work record:', { date, breakRecords, clockInAt, clockOutAt });
 
+    // 土日チェック（当日の編集のみ制限）
+    const today = new Date();
+    const todayString = this.getJSTDate(today);
+
+    if (date === todayString) {  // 今日の日付の場合のみチェック
+      if (this.isWeekendClockDisabled() && this.isWeekend(today)) {
+        console.log(`[FreeeAPI] Weekend clock disabled. Cannot update today's work record on weekend`);
+        throw new Error('本日（土日）の勤怠記録は編集できません');
+      }
+    }
+
     // 現在の勤怠記録を取得
     const currentRecord = await this.getWorkRecord(date);
     if (!currentRecord) {
       throw new Error('勤怠記録が見つかりません');
     }
 
-    if (!currentRecord.clockInAt && !clockInAt) {
+    // 休憩時間がある場合のみ、出勤時刻のチェックを行う
+    if (breakRecords.length > 0 && !currentRecord.clockInAt && !clockInAt) {
       throw new Error('出勤時刻が記録されていないため、休憩時間を更新できません');
     }
 
@@ -598,11 +639,14 @@ export class FreeeApiService {
     const requestBody: any = {
       company_id: this.config.companyId,
       break_records: formattedBreakRecords,
-      // clockInAtが指定されていればそれを使用、なければ現在の値を使用
-      clock_in_at: clockInAt
-        ? this.formatTimeToHHmm(clockInAt)
-        : this.formatTimeToHHmm(currentRecord.clockInAt!),
     };
+
+    // 出勤時刻の設定
+    if (clockInAt !== undefined) {
+      requestBody.clock_in_at = this.formatTimeToHHmm(clockInAt);
+    } else if (currentRecord.clockInAt) {
+      requestBody.clock_in_at = this.formatTimeToHHmm(currentRecord.clockInAt);
+    }
 
     // clockOutAtが指定されている場合
     if (clockOutAt !== undefined) {

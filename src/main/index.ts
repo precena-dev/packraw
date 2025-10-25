@@ -292,7 +292,7 @@ ipcMain.handle('freee-api-init', () => {
       refreshTokenExpiresAt: config.api.refreshTokenExpiresAt,
       companyId: config.api.companyId,
       employeeId: config.api.employeeId,
-    });
+    }, configManager);
     
     // PowerMonitorService に FreeeApiService を設定
     if (powerMonitorService) {

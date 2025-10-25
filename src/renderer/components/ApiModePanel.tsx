@@ -177,6 +177,9 @@ export const ApiModePanel: React.FC = () => {
   const handleDateChange = (direction: 'prev' | 'next') => {
     console.log('handleDateChange called:', direction, 'current selectedDate:', selectedDate);
 
+    // エラーメッセージをクリア
+    setError(null);
+
     // YYYY-MM-DD形式の文字列から年月日を分解
     const [year, month, day] = selectedDate.split('-').map(Number);
     const currentDate = new Date(year, month - 1, day); // monthは0-indexedなので-1
@@ -222,6 +225,9 @@ export const ApiModePanel: React.FC = () => {
       console.log('Future date blocked:', date, '>', today);
       return;
     }
+
+    // エラーメッセージをクリア
+    setError(null);
 
     // 日付変更時に即座に表示をクリア
     setTodayTimeClocks([]);
