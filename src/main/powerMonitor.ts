@@ -13,7 +13,6 @@ export class PowerMonitorService {
     this.configManager = configManager;
     this.setupIpcHandlers();
     this.setupShutdownHandler();
-    this.setupSleepSuspendHandler();
 
     // 設定ファイルから初期状態を読み込み
     const powerMonitorConfig = this.configManager.getPowerMonitorConfig();
@@ -78,42 +77,41 @@ export class PowerMonitorService {
   }
 
   /**
-   * スリープ・サスペンドイベントのハンドラーをセットアップ
+   * 休憩中かどうかを判定
    */
-  private setupSleepSuspendHandler() {
-    // システムサスペンド時の処理
-    powerMonitor.on('suspend', async () => {
-      console.log('[PowerMonitor] System suspend detected');
+  private async isOnBreak(): Promise<boolean> {
+    if (!this.freeeApiService) {
+      return false;
+    }
 
-      // 時間帯別自動退勤のチェック
-      if (await this.shouldAutoClockOutBasedOnTime()) {
-        try {
-          console.log('[PowerMonitor] Auto clocking out based on time configuration...');
-          await this.freeeApiService!.timeClock('clock_out');
-          console.log('[PowerMonitor] Clock-out successful on suspend');
-          this.notifyRenderer('auto_clock_out_time_based');
-        } catch (error) {
-          console.error('[PowerMonitor] Failed to auto clock-out on suspend:', error);
-        }
-      }
-    });
+    try {
+      const lastType = await this.freeeApiService.getLastTimeClockType();
+      return lastType === 'break_begin';
+    } catch (error) {
+      console.error('[PowerMonitor] Error checking if on break:', error);
+      return false;
+    }
+  }
 
-    // macOSでのスリープイベント検知（lock-screenで代用）
-    powerMonitor.on('lock-screen', async () => {
-      console.log('[PowerMonitor] Screen lock detected (may indicate sleep on macOS)');
+  /**
+   * 退勤処理（休憩中の場合は先に休憩終了）
+   * 全ての退勤処理でこのメソッドを使用することで、統一的な処理を実現
+   */
+  private async executeClockOut(): Promise<void> {
+    if (!this.freeeApiService) {
+      throw new Error('FreeeApiService not available');
+    }
 
-      // 時間帯別自動退勤のチェック
-      if (await this.shouldAutoClockOutBasedOnTime()) {
-        try {
-          console.log('[PowerMonitor] Auto clocking out based on time configuration...');
-          await this.freeeApiService!.timeClock('clock_out');
-          console.log('[PowerMonitor] Clock-out successful on lock-screen');
-          this.notifyRenderer('auto_clock_out_time_based');
-        } catch (error) {
-          console.error('[PowerMonitor] Failed to auto clock-out on lock-screen:', error);
-        }
-      }
-    });
+    // 休憩中の場合は先に休憩終了
+    if (await this.isOnBreak()) {
+      console.log('[PowerMonitor] Currently on break, ending break first...');
+      await this.freeeApiService.timeClock('break_end');
+      console.log('[PowerMonitor] Break ended before clock-out');
+    }
+
+    // 退勤処理
+    await this.freeeApiService.timeClock('clock_out');
+    console.log('[PowerMonitor] Clock-out successful');
   }
 
   /**
@@ -147,11 +145,11 @@ export class PowerMonitorService {
         const lastType = await this.freeeApiService.getLastTimeClockType();
         console.log('[PowerMonitor] Last time clock type:', lastType);
 
-        // 退勤していない場合は自動退勤
+        // 退勤していない場合は自動退勤（統一的な退勤処理を使用）
         if (lastType !== 'clock_out' && lastType !== null) {
           console.log('[PowerMonitor] Clocking out automatically before shutdown...');
-          await this.freeeApiService.timeClock('clock_out');
-          console.log('[PowerMonitor] Clock-out successful');
+          await this.executeClockOut();
+          console.log('[PowerMonitor] Clock-out successful on shutdown');
         } else {
           console.log('[PowerMonitor] Already clocked out or no clock-in record, no action needed');
         }
@@ -223,51 +221,83 @@ export class PowerMonitorService {
     console.log('Starting PowerMonitor service...');
     this.isMonitoring = true;
 
-    // システムサスペンド時 → 休憩開始
+    // システムサスペンド時の統合処理
     powerMonitor.on('suspend', async () => {
-      console.log('System suspend detected - starting break');
+      console.log('[PowerMonitor] System suspend detected');
+
+      // 優先度1: 時間帯別自動退勤のチェック
+      if (await this.shouldAutoClockOutBasedOnTime()) {
+        try {
+          console.log('[PowerMonitor] Auto clocking out based on time configuration...');
+          await this.executeClockOut();
+          console.log('[PowerMonitor] Clock-out successful on suspend');
+          this.notifyRenderer('auto_clock_out_time_based');
+          return; // 退勤した場合は休憩開始処理をスキップ
+        } catch (error) {
+          console.error('[PowerMonitor] Failed to auto clock-out on suspend:', error);
+        }
+      }
+
+      // 優先度2: 自動休憩機能（時間帯別自動退勤が実行されなかった場合のみ）
+      console.log('[PowerMonitor] Starting break due to system suspend');
       try {
         await this.freeeApiService!.timeClock('break_begin');
-        console.log('Break started successfully due to system suspend');
+        console.log('[PowerMonitor] Break started successfully due to system suspend');
         this.notifyRenderer('break_started');
       } catch (error) {
-        console.error('Failed to start break on system suspend:', error);
+        console.error('[PowerMonitor] Failed to start break on system suspend:', error);
       }
     });
 
     // システムレジューム時 → 休憩終了
     powerMonitor.on('resume', async () => {
-      console.log('System resume detected - ending break');
+      console.log('[PowerMonitor] System resume detected - ending break');
       try {
         await this.freeeApiService!.timeClock('break_end');
-        console.log('Break ended successfully due to system resume');
+        console.log('[PowerMonitor] Break ended successfully due to system resume');
         this.notifyRenderer('break_ended');
       } catch (error) {
-        console.error('Failed to end break on system resume:', error);
+        console.error('[PowerMonitor] Failed to end break on system resume:', error);
       }
     });
 
-    // スクリーンロック時 → 休憩開始
+    // スクリーンロック時の統合処理
     powerMonitor.on('lock-screen', async () => {
-      console.log('Screen lock detected - starting break');
+      console.log('[PowerMonitor] Screen lock detected');
+
+      // 優先度1: 時間帯別自動退勤のチェック
+      if (await this.shouldAutoClockOutBasedOnTime()) {
+        try {
+          console.log('[PowerMonitor] Auto clocking out based on time configuration...');
+          await this.executeClockOut();
+          console.log('[PowerMonitor] Clock-out successful on lock-screen');
+          this.notifyRenderer('auto_clock_out_time_based');
+          return; // 退勤した場合は休憩開始処理をスキップ
+        } catch (error) {
+          console.error('[PowerMonitor] Failed to auto clock-out on lock-screen:', error);
+        }
+      }
+
+      // 優先度2: 自動休憩機能（時間帯別自動退勤が実行されなかった場合のみ）
+      console.log('[PowerMonitor] Starting break due to screen lock');
       try {
         await this.freeeApiService!.timeClock('break_begin');
-        console.log('Break started successfully due to screen lock');
+        console.log('[PowerMonitor] Break started successfully due to screen lock');
         this.notifyRenderer('break_started');
       } catch (error) {
-        console.error('Failed to start break on screen lock:', error);
+        console.error('[PowerMonitor] Failed to start break on screen lock:', error);
       }
     });
 
     // スクリーンアンロック時 → 休憩終了
     powerMonitor.on('unlock-screen', async () => {
-      console.log('Screen unlock detected - ending break');
+      console.log('[PowerMonitor] Screen unlock detected - ending break');
       try {
         await this.freeeApiService!.timeClock('break_end');
-        console.log('Break ended successfully due to screen unlock');
+        console.log('[PowerMonitor] Break ended successfully due to screen unlock');
         this.notifyRenderer('break_ended');
       } catch (error) {
-        console.error('Failed to end break on screen unlock:', error);
+        console.error('[PowerMonitor] Failed to end break on screen unlock:', error);
       }
     });
 

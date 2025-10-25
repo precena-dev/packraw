@@ -8,6 +8,7 @@ import { AddBreakModal } from './AddBreakModal';
 import { EditClockTimeModal } from './EditClockTimeModal';
 import { CreateWorkRecordModal } from './CreateWorkRecordModal';
 import { DeleteWorkRecordModal } from './DeleteWorkRecordModal';
+import { ErrorModal } from './ErrorModal';
 
 interface TimeClockButtonState {
   clockIn: boolean;
@@ -38,6 +39,7 @@ export const ApiModePanel: React.FC = () => {
   const [isEditClockTimeModalOpen, setIsEditClockTimeModalOpen] = useState(false);
   const [isCreateWorkRecordModalOpen, setIsCreateWorkRecordModalOpen] = useState(false);
   const [isDeleteWorkRecordModalOpen, setIsDeleteWorkRecordModalOpen] = useState(false);
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
   const [editingBreak, setEditingBreak] = useState<{ begin: any; end: any } | null>(null);
   const [editingClockTime, setEditingClockTime] = useState<{ data: any; type: 'clock_in' | 'clock_out' } | null>(null);
   const [breakScheduleConfig, setBreakScheduleConfig] = useState<any>(null);
@@ -249,6 +251,13 @@ export const ApiModePanel: React.FC = () => {
       fetchDatesWithRecords(); // 勤怠記録のある日付を取得
     }
   }, [isAuthorized, selectedDate]);
+
+  // エラーが設定された時にエラーモーダルを開く
+  useEffect(() => {
+    if (error) {
+      setIsErrorModalOpen(true);
+    }
+  }, [error]);
 
   // PowerMonitor と BreakScheduler の状態を初期化
   useEffect(() => {
@@ -1031,6 +1040,17 @@ export const ApiModePanel: React.FC = () => {
           loading={loading}
         />
       )}
+
+      {/* エラーモーダル */}
+      <ErrorModal
+        isOpen={isErrorModalOpen}
+        errorMessage={error}
+        date={selectedDate}
+        onClose={() => {
+          setIsErrorModalOpen(false);
+          setError(null);
+        }}
+      />
     </div>
   );
 };
