@@ -136,9 +136,10 @@ export class FreeeApiService {
       return true; // configManagerがない場合はデフォルトで土日無効
     }
     const config = this.configManager.getAutoTimeClockConfig();
-    // disableWeekendsが未定義またはtrueの場合は無効化
+    // disableWeekendsのデフォルト値はtrue（土日無効）
     // 明示的にfalseが設定されている場合のみ土日打刻を許可
-    return config.disableWeekends !== false;
+    const shouldDisableWeekends = config.disableWeekends ?? true;
+    return shouldDisableWeekends;
   }
 
 
@@ -230,7 +231,7 @@ export class FreeeApiService {
   }
 
   private async refreshAccessToken(): Promise<void> {
-    console.log('Refreshing access token...');
+    console.log('[FreeeAPI] POST /public_api/token (refresh token)');
     const response = await axios.post('https://accounts.secure.freee.co.jp/public_api/token', {
       grant_type: 'refresh_token',
       client_id: this.config.clientId,
@@ -238,35 +239,31 @@ export class FreeeApiService {
       refresh_token: this.config.refreshToken,
     });
 
-    console.log('Token refresh successful');
     this.config.accessToken = response.data.access_token;
     this.config.refreshToken = response.data.refresh_token;
-    
+
     // 新しいリフレッシュトークンの有効期限を設定（90日後）
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 90);
     this.config.refreshTokenExpiresAt = expiresAt.toISOString();
-    
+
     // リフレッシュが成功したらカウンターをリセット
     this.refreshAttempts = 0;
-    
-    console.log('New access token:', this.config.accessToken?.substring(0, 10) + '...');
   }
 
   async getEmployeeInfo(): Promise<any> {
-    console.log('Getting employee info with company_id:', this.config.companyId);
     if (!this.config.companyId) {
       throw new Error('Company ID is required. Please get companies list first.');
     }
+    console.log('[FreeeAPI] GET /hr/api/v1/users/me');
     const response = await this.axiosInstance.get('/hr/api/v1/users/me', {
       params: { company_id: this.config.companyId },
     });
-    console.log('Employee info response:', response.data);
-    
+
     // レスポンス構造を整形
     const userData = response.data;
     const currentCompany = userData.companies?.find((c: any) => c.id === this.config.companyId);
-    
+
     return {
       user: userData,
       employee: currentCompany ? {
@@ -284,10 +281,10 @@ export class FreeeApiService {
 
     // 土日チェック
     if (this.isWeekendClockDisabled() && this.isWeekend(now)) {
-      console.log(`[FreeeAPI] Weekend clock disabled. Skipping ${type} on weekend.`);
       throw new Error('土日の打刻は無効化されています');
     }
 
+    console.log(`[FreeeAPI] POST /hr/api/v1/employees/${this.config.employeeId}/time_clocks (${type})`);
     const response = await this.axiosInstance.post(
       `/hr/api/v1/employees/${this.config.employeeId}/time_clocks`,
       {
@@ -308,11 +305,9 @@ export class FreeeApiService {
         }
       );
 
-      console.log('Work record API response:', response.data);
 
       // レスポンス構造を確認
       if (!response.data) {
-        console.log('No work record found for date:', date);
         return null;
       }
 
@@ -324,7 +319,6 @@ export class FreeeApiService {
         clockOutAt: record.clock_out_at,
       }));
 
-      console.log('Converted break_records:', breakRecords);
 
       return {
         date: data.date || date,
@@ -334,9 +328,7 @@ export class FreeeApiService {
       };
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.log('Work record API error:', error.response?.status, error.response?.data);
         if (error.response?.status === 404) {
-          console.log('No work record found for date:', date);
           return null;
         }
       }
@@ -412,21 +404,17 @@ export class FreeeApiService {
         // 時系列でソート
         timeClocks.sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
 
-        console.log('Time clocks converted from work record:', timeClocks);
         return timeClocks;
       }
 
       // work_recordsにデータがない場合は、time_clocks APIからリアルタイムデータを取得
-      console.log('No work record found, fetching from time_clocks API...');
       const timeClocks = await this.getTimeClocks(date, date);
-      console.log('Time clocks from time_clocks API:', timeClocks);
       return timeClocks;
 
     } catch (error) {
       console.error('Error getting time clocks from work record:', error);
       // エラーの場合もtime_clocks APIから取得を試みる
       try {
-        console.log('Falling back to time_clocks API...');
         const timeClocks = await this.getTimeClocks(date, date);
         return timeClocks;
       } catch (fallbackError) {
@@ -451,9 +439,7 @@ export class FreeeApiService {
   
   // リフレッシュトークンの残り有効日数を取得
   async getCompanies(): Promise<any> {
-    console.log('Getting companies list...');
     const response = await this.axiosInstance.get('/api/1/companies');
-    console.log('Companies response:', response.data);
     return response.data;
   }
 
@@ -471,7 +457,6 @@ export class FreeeApiService {
   }
 
   async getTimeClocks(fromDate?: string, toDate?: string): Promise<TimeClock[]> {
-    console.log('Getting time clocks...');
     
     const params: any = {
       company_id: this.config.companyId,
@@ -490,19 +475,16 @@ export class FreeeApiService {
       { params }
     );
     
-    console.log('Time clocks response:', response.data);
     return response.data; // レスポンスは直接TimeClock[]の配列
   }
 
   async getLastTimeClockType(): Promise<string | null> {
-    console.log('Getting last time clock type...');
     
     try {
       const today = this.getJSTDate();
       const timeClocks = await this.getTimeClocks(today, today);
       
       if (!timeClocks || timeClocks.length === 0) {
-        console.log('No time clocks found for today');
         return null;
       }
       
@@ -512,7 +494,6 @@ export class FreeeApiService {
       );
       
       const lastClock = sortedClocks[0];
-      console.log('Last time clock:', lastClock);
       
       return lastClock.type;
     } catch (error) {
@@ -522,7 +503,6 @@ export class FreeeApiService {
   }
 
   async getAvailableTimeClockTypes(): Promise<string[]> {
-    console.log('Getting available time clock types...');
     
     try {
       const lastType = await this.getLastTimeClockType();
@@ -539,7 +519,6 @@ export class FreeeApiService {
         case 'clock_out': // 勤務終了済み
           return []; // 当日勤務終了
         default:
-          console.warn('Unknown time clock type:', lastType);
           return [];
       }
     } catch (error) {
@@ -549,7 +528,6 @@ export class FreeeApiService {
   }
 
   async getTimeClockButtonStates(): Promise<TimeClockButtonState> {
-    console.log('Getting time clock button states...');
     
     try {
       const availableTypes = await this.getAvailableTimeClockTypes();
@@ -605,7 +583,6 @@ export class FreeeApiService {
     clockInAt?: string,
     clockOutAt?: string | null
   ): Promise<any> {
-    console.log('Updating work record:', { date, breakRecords, clockInAt, clockOutAt });
 
     // 土日チェック（当日の編集のみ制限）
     const today = new Date();
@@ -613,7 +590,6 @@ export class FreeeApiService {
 
     if (date === todayString) {  // 今日の日付の場合のみチェック
       if (this.isWeekendClockDisabled() && this.isWeekend(today)) {
-        console.log(`[FreeeAPI] Weekend clock disabled. Cannot update today's work record on weekend`);
         throw new Error('本日（土日）の勤怠記録は編集できません');
       }
     }
@@ -659,15 +635,13 @@ export class FreeeApiService {
       requestBody.clock_out_at = this.formatTimeToHHmm(currentRecord.clockOutAt);
     }
 
-    console.log('PUT request body:', JSON.stringify(requestBody, null, 2));
-
+    console.log(`[FreeeAPI] PUT /hr/api/v1/employees/${this.config.employeeId}/work_records/${date}`);
     // 勤怠記録を更新
     const response = await this.axiosInstance.put(
       `/hr/api/v1/employees/${this.config.employeeId}/work_records/${date}`,
       requestBody
     );
 
-    console.log('Work record updated:', response.data);
     return response.data;
   }
 
@@ -675,8 +649,7 @@ export class FreeeApiService {
    * 勤怠記録を削除
    */
   async deleteWorkRecord(date: string): Promise<any> {
-    console.log(`Deleting work record for ${date}`);
-
+    console.log(`[FreeeAPI] DELETE /hr/api/v1/employees/${this.config.employeeId}/work_records/${date}`);
     // 勤怠記録を削除（DELETE メソッド）
     const response = await this.axiosInstance.delete(
       `/hr/api/v1/employees/${this.config.employeeId}/work_records/${date}`,
@@ -687,7 +660,6 @@ export class FreeeApiService {
       }
     );
 
-    console.log('Work record deleted:', response.data);
     return response.data;
   }
 }

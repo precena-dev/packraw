@@ -73,20 +73,16 @@ export const ApiModePanel: React.FC = () => {
         
         // アクセストークンがない場合は認証が必要
         if (!config.api?.accessToken) {
-          console.log('No access token found. Authorization required.');
           setIsAuthorized(false);
           return;
         }
         
         // 既存のトークンで従業員情報を取得してみる
         try {
-          console.log('Attempting to get employee info...');
           const info = await window.electronAPI.freeeApi.getEmployeeInfo();
-          console.log('Employee info received:', info);
           
           // 従業員IDが取得できた場合、設定ファイルに保存
           if (info.employee?.id) {
-            console.log('Saving employee ID:', info.employee.id);
             const currentConfig = await window.electronAPI.getConfig();
             if (currentConfig.api) {
               await window.electronAPI.updateConfig({
@@ -104,17 +100,13 @@ export const ApiModePanel: React.FC = () => {
           
           // 今日の勤務記録を取得
           try {
-            console.log('Attempting to get today work record...');
             const todayRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
-            console.log('Today work record:', todayRecord);
           } catch (recordError) {
-            console.log('Could not fetch today work record:', recordError);
             // 勤務記録が取得できなくても認証は成功している
           }
         } catch (err) {
           // 認証が必要
           console.error('API Error:', err);
-          console.log('Authorization required');
           setIsAuthorized(false);
         }
       }
@@ -127,7 +119,6 @@ export const ApiModePanel: React.FC = () => {
     try {
       if (isAuthorized) {
         const states = await window.electronAPI.freeeApi.getTimeClockButtonStates();
-        console.log('Button states updated:', states);
         setButtonStates(states);
       }
     } catch (error) {
@@ -142,7 +133,6 @@ export const ApiModePanel: React.FC = () => {
         setLoading(true); // ローディング開始
         // work_records APIを使用して修正後の時刻を取得
         const timeClocks = await window.electronAPI.freeeApi.getTimeClocksFromWorkRecord(date);
-        console.log(`Time clocks from work record for ${date}:`, timeClocks);
         setTodayTimeClocks(timeClocks);
       }
     } catch (error) {
@@ -181,7 +171,6 @@ export const ApiModePanel: React.FC = () => {
 
   // 日付変更ハンドラー
   const handleDateChange = (direction: 'prev' | 'next') => {
-    console.log('handleDateChange called:', direction, 'current selectedDate:', selectedDate);
 
     // エラーメッセージをクリア
     setError(null);
@@ -202,13 +191,11 @@ export const ApiModePanel: React.FC = () => {
     const newDay = String(currentDate.getDate()).padStart(2, '0');
     const newDateString = `${newYear}-${newMonth}-${newDay}`;
 
-    console.log('New date calculated:', newDateString);
 
     const today = getJSTDateString();
 
     // 未来日への遷移は不可
     if (direction === 'next' && newDateString > today) {
-      console.log('Future date blocked:', newDateString, '>', today);
       return;
     }
 
@@ -222,13 +209,11 @@ export const ApiModePanel: React.FC = () => {
 
   // カレンダーから日付選択
   const handleDateSelect = (date: string) => {
-    console.log('handleDateSelect called:', date);
 
     const today = getJSTDateString();
 
     // 未来日への遷移は不可
     if (date > today) {
-      console.log('Future date blocked:', date, '>', today);
       return;
     }
 
@@ -266,18 +251,15 @@ export const ApiModePanel: React.FC = () => {
         // PowerMonitor状態の初期化
         const isMonitoring = await window.electronAPI.powerMonitor.isMonitoring();
         setIsPowerMonitorEnabled(isMonitoring);
-        console.log('PowerMonitor status initialized:', isMonitoring);
 
         // BreakScheduler設定の初期化
         try {
           const config = await window.electronAPI.breakScheduler.getConfig();
           setBreakScheduleConfig(config);
-          console.log('BreakScheduler config initialized:', config);
 
           // 次回予約を取得
           const schedule = await window.electronAPI.breakScheduler.getNextSchedule();
           setNextSchedule(schedule);
-          console.log('Next schedule:', schedule);
         } catch (error) {
           console.error('Failed to initialize break scheduler:', error);
         }
@@ -286,7 +268,6 @@ export const ApiModePanel: React.FC = () => {
         try {
           const autoConfig = await window.electronAPI.autoTimeClock.getConfig();
           setAutoTimeClockConfig(autoConfig);
-          console.log('AutoTimeClock config initialized:', autoConfig);
         } catch (error) {
           console.error('Failed to initialize auto time clock:', error);
         }
@@ -307,10 +288,8 @@ export const ApiModePanel: React.FC = () => {
       return;
     }
 
-    console.log('Setting up 5-minute auto-refresh for today\'s data');
 
     const interval = setInterval(async () => {
-      console.log('Auto-refreshing time clocks and button states...');
       updateButtonStates();
       updateTimeClocks(selectedDate);
 
@@ -324,7 +303,6 @@ export const ApiModePanel: React.FC = () => {
     }, 5 * 60 * 1000); // 5分 = 300,000ms
 
     return () => {
-      console.log('Clearing auto-refresh interval');
       clearInterval(interval);
     };
   }, [isAuthorized, isToday, selectedDate]);
@@ -336,7 +314,6 @@ export const ApiModePanel: React.FC = () => {
     }
 
     const handlePowerMonitorEvent = (eventType: string) => {
-      console.log('PowerMonitor event received:', eventType);
       
       // 画面をリフレッシュ（ボタン状態と打刻履歴を更新）
       updateButtonStates();
@@ -346,10 +323,8 @@ export const ApiModePanel: React.FC = () => {
       if (isToday) {
         try {
           window.electronAPI.freeeApi.getTodayWorkRecord().then(record => {
-            console.log('Updated work record after PowerMonitor event:', record);
           });
         } catch (error) {
-          console.log('Could not fetch updated work record after PowerMonitor event:', error);
         }
       }
     };
@@ -383,18 +358,13 @@ export const ApiModePanel: React.FC = () => {
     setError(null);
     try {
       await window.electronAPI.freeeApi.timeClock(type);
-      
+
       // 打刻後にボタン状態と打刻履歴を更新
       await updateButtonStates();
       await updateTimeClocks(selectedDate);
-      
-      // 勤務記録を更新
-      try {
-        const todayRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();
-        console.log('Updated work record:', todayRecord);
-      } catch (recordError) {
-        console.log('Could not fetch updated work record:', recordError);
-      }
+
+      // 勤務記録を更新（エラーは無視）
+      await window.electronAPI.freeeApi.getTodayWorkRecord().catch(() => {});
     } catch (err: any) {
       setError(err.message || '打刻に失敗しました');
     } finally {
@@ -429,12 +399,10 @@ export const ApiModePanel: React.FC = () => {
     try {
       const updatedConfig = await window.electronAPI.breakScheduler.updateConfig(config);
       setBreakScheduleConfig(updatedConfig);
-      console.log('BreakScheduler config updated:', updatedConfig);
 
       // 次回予約を更新
       const schedule = await window.electronAPI.breakScheduler.getNextSchedule();
       setNextSchedule(schedule);
-      console.log('Next schedule updated:', schedule);
     } catch (error) {
       console.error('Failed to update break schedule:', error);
       setError('休憩予約設定の更新に失敗しました');
@@ -446,7 +414,6 @@ export const ApiModePanel: React.FC = () => {
     try {
       const updatedConfig = await window.electronAPI.autoTimeClock.updateConfig(config);
       setAutoTimeClockConfig(updatedConfig);
-      console.log('AutoTimeClock config updated:', updatedConfig);
     } catch (error) {
       console.error('Failed to update auto time clock:', error);
       setError('自動出勤・退勤設定の更新に失敗しました');
