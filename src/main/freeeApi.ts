@@ -457,25 +457,48 @@ export class FreeeApiService {
   }
 
   async getTimeClocks(fromDate?: string, toDate?: string): Promise<TimeClock[]> {
-    
-    const params: any = {
-      company_id: this.config.companyId,
-    };
-    
-    if (fromDate) {
-      params.from_date = fromDate;
+    const allTimeClocks: TimeClock[] = [];
+    let offset = 0;
+    const limit = 100; // 最大取得件数
+
+    while (true) {
+      const params: any = {
+        company_id: this.config.companyId,
+        limit,
+        offset,
+      };
+
+      if (fromDate) {
+        params.from_date = fromDate;
+      }
+
+      if (toDate) {
+        params.to_date = toDate;
+      }
+
+      const response = await this.axiosInstance.get(
+        `/hr/api/v1/employees/${this.config.employeeId}/time_clocks`,
+        { params }
+      );
+
+      const timeClocks = response.data;
+
+      if (!timeClocks || timeClocks.length === 0) {
+        // データがなくなったら終了
+        break;
+      }
+
+      allTimeClocks.push(...timeClocks);
+
+      // 取得したレコード数がlimit未満なら、次のページはない
+      if (timeClocks.length < limit) {
+        break;
+      }
+
+      offset += limit;
     }
-    
-    if (toDate) {
-      params.to_date = toDate;
-    }
-    
-    const response = await this.axiosInstance.get(
-      `/hr/api/v1/employees/${this.config.employeeId}/time_clocks`,
-      { params }
-    );
-    
-    return response.data; // レスポンスは直接TimeClock[]の配列
+
+    return allTimeClocks;
   }
 
   async getLastTimeClockType(): Promise<string | null> {

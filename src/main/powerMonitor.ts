@@ -13,11 +13,11 @@ export class PowerMonitorService {
     this.configManager = configManager;
     this.setupIpcHandlers();
     this.setupShutdownHandler();
+    this.setupSystemEventListeners(); // システムイベントリスナーを常に登録
 
     // 設定ファイルから初期状態を読み込み
     const powerMonitorConfig = this.configManager.getPowerMonitorConfig();
-    if (powerMonitorConfig.enabled) {
-    }
+    this.isMonitoring = powerMonitorConfig.enabled;
   }
 
   /**
@@ -173,12 +173,6 @@ export class PowerMonitorService {
 
   public setFreeeApiService(service: FreeeApiService) {
     this.freeeApiService = service;
-    
-    // freeeApiServiceが設定されたら、設定ファイルで有効になっている場合は自動開始
-    const powerMonitorConfig = this.configManager.getPowerMonitorConfig();
-    if (powerMonitorConfig.enabled && !this.isMonitoring) {
-      this.startMonitoring();
-    }
   }
 
   public setMainWindow(window: BrowserWindow) {
@@ -191,20 +185,15 @@ export class PowerMonitorService {
     }
   }
 
-  public startMonitoring(): boolean {
-    if (this.isMonitoring) {
-      return false;
-    }
-
-    if (!this.freeeApiService) {
-      console.error('FreeeApiService is not set');
-      return false;
-    }
-
-    this.isMonitoring = true;
-
+  /**
+   * システムイベントリスナーのセットアップ（常に登録）
+   */
+  private setupSystemEventListeners() {
     // システムサスペンド時の統合処理
     powerMonitor.on('suspend', async () => {
+      if (!this.freeeApiService) {
+        return;
+      }
 
       // 優先度1: 時間帯別自動退勤のチェック
       if (await this.shouldAutoClockOutBasedOnTime()) {
@@ -217,9 +206,13 @@ export class PowerMonitorService {
         }
       }
 
-      // 優先度2: 自動休憩機能（時間帯別自動退勤が実行されなかった場合のみ）
+      // 優先度2: 自動休憩機能（自動休憩モードが有効な場合のみ）
+      if (!this.isMonitoring) {
+        return;
+      }
+
       try {
-        await this.freeeApiService!.timeClock('break_begin');
+        await this.freeeApiService.timeClock('break_begin');
         this.notifyRenderer('break_started');
       } catch (error) {
         console.error('[PowerMonitor] Failed to start break on system suspend:', error);
@@ -228,8 +221,17 @@ export class PowerMonitorService {
 
     // システムレジューム時 → 休憩終了
     powerMonitor.on('resume', async () => {
+      if (!this.freeeApiService) {
+        return;
+      }
+
+      // 自動休憩モードが有効な場合のみ休憩終了
+      if (!this.isMonitoring) {
+        return;
+      }
+
       try {
-        await this.freeeApiService!.timeClock('break_end');
+        await this.freeeApiService.timeClock('break_end');
         this.notifyRenderer('break_ended');
       } catch (error) {
         console.error('[PowerMonitor] Failed to end break on system resume:', error);
@@ -238,6 +240,9 @@ export class PowerMonitorService {
 
     // スクリーンロック時の統合処理
     powerMonitor.on('lock-screen', async () => {
+      if (!this.freeeApiService) {
+        return;
+      }
 
       // 優先度1: 時間帯別自動退勤のチェック
       if (await this.shouldAutoClockOutBasedOnTime()) {
@@ -250,9 +255,13 @@ export class PowerMonitorService {
         }
       }
 
-      // 優先度2: 自動休憩機能（時間帯別自動退勤が実行されなかった場合のみ）
+      // 優先度2: 自動休憩機能（自動休憩モードが有効な場合のみ）
+      if (!this.isMonitoring) {
+        return;
+      }
+
       try {
-        await this.freeeApiService!.timeClock('break_begin');
+        await this.freeeApiService.timeClock('break_begin');
         this.notifyRenderer('break_started');
       } catch (error) {
         console.error('[PowerMonitor] Failed to start break on screen lock:', error);
@@ -261,14 +270,30 @@ export class PowerMonitorService {
 
     // スクリーンアンロック時 → 休憩終了
     powerMonitor.on('unlock-screen', async () => {
+      if (!this.freeeApiService) {
+        return;
+      }
+
+      // 自動休憩モードが有効な場合のみ休憩終了
+      if (!this.isMonitoring) {
+        return;
+      }
+
       try {
-        await this.freeeApiService!.timeClock('break_end');
+        await this.freeeApiService.timeClock('break_end');
         this.notifyRenderer('break_ended');
       } catch (error) {
         console.error('[PowerMonitor] Failed to end break on screen unlock:', error);
       }
     });
+  }
 
+  public startMonitoring(): boolean {
+    if (this.isMonitoring) {
+      return false;
+    }
+
+    this.isMonitoring = true;
     return true;
   }
 
@@ -276,13 +301,6 @@ export class PowerMonitorService {
     if (!this.isMonitoring) {
       return false;
     }
-
-    
-    // 全てのイベントリスナーを削除
-    powerMonitor.removeAllListeners('suspend');
-    powerMonitor.removeAllListeners('resume');
-    powerMonitor.removeAllListeners('lock-screen');
-    powerMonitor.removeAllListeners('unlock-screen');
 
     this.isMonitoring = false;
     return true;
