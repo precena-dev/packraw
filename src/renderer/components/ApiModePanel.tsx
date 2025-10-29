@@ -163,7 +163,9 @@ export const ApiModePanel: React.FC = () => {
         }
       });
 
-      setDatesWithRecords(Array.from(datesSet));
+      const datesArray = Array.from(datesSet).sort();
+
+      setDatesWithRecords(datesArray);
     } catch (error) {
       console.error('Failed to fetch dates with records:', error);
     }
