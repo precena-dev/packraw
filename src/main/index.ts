@@ -4,6 +4,7 @@ import { ConfigManager } from './config';
 import { FreeeApiService } from './freeeApi';
 import { PowerMonitorService } from './powerMonitor';
 import { BreakScheduler } from './breakScheduler';
+import { UpdaterService } from './updater';
 
 // アプリ名を早期設定（Dockに表示される名前）
 app.setName('PackRaw');
@@ -14,6 +15,7 @@ const configManager = new ConfigManager();
 let freeeApiService: FreeeApiService | null = null;
 let powerMonitorService: PowerMonitorService | null = null;
 let breakScheduler: BreakScheduler | null = null;
+let updaterService: UpdaterService | null = null;
 let isQuitting = false; // アプリが終了中かどうかのフラグ
 
 
@@ -208,6 +210,11 @@ app.whenReady().then(() => {
   powerMonitorService = new PowerMonitorService(configManager);
   if (mainWindow) {
     powerMonitorService.setMainWindow(mainWindow);
+  }
+
+  // UpdaterService を初期化（自動更新）
+  if (mainWindow) {
+    updaterService = new UpdaterService(mainWindow);
   }
 
   app.on('activate', () => {
@@ -549,4 +556,10 @@ ipcMain.handle('auto-time-clock-get-config', () => {
 
 ipcMain.handle('auto-time-clock-update-config', (_event, config) => {
   return configManager.updateAutoTimeClockConfig(config);
+});
+
+// 自動更新関連のハンドラー
+ipcMain.handle('check-for-updates', () => {
+  if (!updaterService) throw new Error('Updater service not initialized');
+  updaterService.checkForUpdates();
 });
