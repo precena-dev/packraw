@@ -30,6 +30,7 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
 - システムトレイ統合
 - PCイベント検知（PowerMonitor）
 - 設定画面（SettingsModal）
+- **自動更新機能（electron-updater + GitHub Releases）** ⭐NEW
 
 ### プロジェクトステータス
 ✅ **v2.4 カレンダーUI機能完了** (2025-10-22)
@@ -87,11 +88,14 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
   "dependencies": {
     "axios": "^1.10.0",
     "electron": "^37.2.0",
+    "electron-log": "^5.0.0",
     "electron-store": "^10.0.0",
+    "electron-updater": "^6.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.0.0",
     "@types/node": "^24.0.10",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
@@ -178,6 +182,30 @@ freeeの勤怠打刻をデスクトップから素早く行えるようにし、
   - 不要なAPI呼び出しの削減（40%削減達成）
   - 過去日編集時のボタン状態更新スキップ
   - レスポンス速度の改善
+
+### 10. 自動更新機能 📋計画中
+- **electron-updater による自動更新**
+  - GitHub Releases との連携
+  - macOS/Windows/Linux 対応
+  - バージョンチェックとダウンロード
+  - 自動インストール（再起動時）
+- **配布方式**
+  - GitHub Releases を配布サーバーとして使用
+  - 無料で帯域制限なし
+  - CI/CD 統合（GitHub Actions）
+- **コード署名**
+  - macOS: Developer ID 証明書 + 公証（Notarization）
+  - Windows: コード署名証明書（オプション）
+  - セキュアな配布とインストール
+- **更新チェックタイミング**
+  - アプリ起動後5秒後に初回チェック
+  - その後24時間ごとに定期チェック
+  - 手動チェック機能
+- **ユーザー体験**
+  - 更新利用可能時にダイアログ通知
+  - ダウンロード進捗表示
+  - 再起動して更新を促すダイアログ
+  - ダウングレード防止機能
 
 ## 設定ファイル管理
 
@@ -282,7 +310,8 @@ freee-webview-app/
 │   ├── main/              # Electronメインプロセス
 │   │   ├── index.ts       # メインエントリーポイント
 │   │   ├── config.ts      # 設定ファイル管理
-│   │   └── freeeApi.ts    # freee API連携サービス
+│   │   ├── freeeApi.ts    # freee API連携サービス
+│   │   └── updater.ts     # 自動更新サービス
 │   ├── renderer/          # レンダラープロセス（React）
 │   │   ├── App.tsx        # メインアプリコンポーネント
 │   │   ├── components/
@@ -303,6 +332,15 @@ freee-webview-app/
 │   │   └── freeeApi.integration.test.ts # 統合テスト
 │   └── types/
 │       └── electron.d.ts  # TypeScript型定義
+├── build/                 # ビルド設定
+│   ├── entitlements.mac.plist  # macOS entitlements（公証用）
+│   ├── icon.icns          # macOSアイコン
+│   └── icon.ico           # Windowsアイコン
+├── scripts/               # ビルドスクリプト
+│   └── notarize.js        # macOS公証スクリプト
+├── .github/
+│   └── workflows/
+│       └── release.yml    # CI/CD自動リリース
 ├── index.html             # HTMLテンプレート
 ├── package.json
 ├── tsconfig.json
@@ -597,21 +635,321 @@ freee-webview-app/
   - 日付変更時にエラーメッセージを自動削除
   - handleDateChange、handleDateSelectに処理追加
 
-### Phase 11: 次の実装予定 📋計画中
+### Phase 11: 自動更新機能 📋計画中
 
-#### 1. その他の拡張機能
-- **PCイベント連携**
-  - 画面ロック/アンロック検知
-  - スリープ/復帰検知
+#### 概要
+electron-updater + GitHub Releases を使用した自動更新機能の実装。無料で実装でき、macOS/Windows/Linux すべてに対応。
 
-- **システム統合**
-  - タスクトレイアイコン対応
-  - タスクバー格納機能
-  - ショートカットキー対応
+#### アーキテクチャ
+```
+開発者                     GitHub Releases                ユーザー
+  │                              │                          │
+  │ 1. コード修正                │                          │
+  │ 2. バージョンアップ          │                          │
+  │ 3. git tag v1.1.0           │                          │
+  │ 4. git push origin v1.1.0   │                          │
+  │                              │                          │
+  ├──► GitHub Actions 実行       │                          │
+  │    - macOS/Win/Linuxビルド   │                          │
+  │    - latest.yml生成          │                          │
+  │                              │                          │
+  │────► 自動アップロード ────────►│                          │
+  │                              │                          │
+  │                              │  定期チェック（24h毎）    │
+  │                              │◄──────────────────────────┤
+  │                              │                          │
+  │                              │  新バージョン発見         │
+  │                              ├─────────────────────────►│
+  │                              │  ダウンロード             │
+  │                              │◄──────────────────────────┤
+  │                              │                          │
+  │                              │  インストール・再起動     │
+  │                              │                          ✅
+```
 
-- **ユーザビリティ向上**
-  - 打刻リマインダー通知
-  - refreshToken期限警告
+#### 実装手順
+
+##### Phase 11-1: 基本実装（2-4時間、証明書なしテスト）
+1. **パッケージ追加**
+   ```bash
+   npm install electron-updater electron-log --save
+   ```
+
+2. **AutoUpdaterService作成** (`src/main/updater.ts`)
+   - 更新チェックロジック
+   - ダウンロード処理
+   - インストール処理
+   - イベントハンドラー（update-available, download-progress, update-downloaded）
+   - ユーザー通知ダイアログ
+
+3. **メインプロセス統合** (`src/main/index.ts`)
+   - AutoUpdaterServiceの初期化
+   - アプリ起動5秒後に更新チェック
+   - 24時間ごとの定期チェック
+
+4. **electron-builder設定** (`electron-builder.yml`)
+   ```yaml
+   publish:
+     - provider: github
+       owner: your-username
+       repo: freee-webview-app
+       releaseType: release
+
+   mac:
+     target:
+       - dmg
+       - zip  # 自動更新に必須
+
+   win:
+     target:
+       - nsis
+   ```
+
+5. **動作テスト**
+   - 開発環境で動作確認
+   - プロダクションビルドでテスト
+
+##### Phase 11-2: macOS署名・公証（2-3時間 + 証明書取得）
+1. **Apple Developer Program登録**
+   - 費用: $99/年
+   - Developer ID Application証明書取得
+
+2. **Entitlements設定** (`build/entitlements.mac.plist`)
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+     <key>com.apple.security.cs.allow-jit</key>
+     <true/>
+     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+     <true/>
+     <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+     <true/>
+   </dict>
+   </plist>
+   ```
+
+3. **公証スクリプト** (`scripts/notarize.js`)
+   ```javascript
+   const { notarize } = require('@electron/notarize');
+
+   exports.default = async function notarizing(context) {
+     const { electronPlatformName, appOutDir } = context;
+     if (electronPlatformName !== 'darwin') return;
+
+     const appName = context.packager.appInfo.productFilename;
+
+     return await notarize({
+       appBundleId: 'com.packraw.desktop.app',
+       appPath: `${appOutDir}/${appName}.app`,
+       appleId: process.env.APPLE_ID,
+       appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
+       teamId: process.env.APPLE_TEAM_ID,
+     });
+   };
+   ```
+
+4. **electron-builder.yml更新**
+   ```yaml
+   mac:
+     identity: "Developer ID Application: Your Name (TEAM_ID)"
+     hardenedRuntime: true
+     gatekeeperAssess: false
+     entitlements: build/entitlements.mac.plist
+     entitlementsInherit: build/entitlements.mac.plist
+
+   afterSign: scripts/notarize.js
+   ```
+
+5. **環境変数設定**
+   ```bash
+   export APPLE_ID="your-apple-id@example.com"
+   export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+   export APPLE_TEAM_ID="XXXXXXXXXX"
+   ```
+
+##### Phase 11-3: CI/CD自動化（1-2時間）
+1. **GitHub Actions設定** (`.github/workflows/release.yml`)
+   ```yaml
+   name: Build and Release
+
+   on:
+     push:
+       tags:
+         - 'v*.*.*'
+
+   jobs:
+     release:
+       runs-on: ${{ matrix.os }}
+
+       strategy:
+         matrix:
+           os: [macos-latest, windows-latest, ubuntu-latest]
+
+       steps:
+         - name: Check out Git repository
+           uses: actions/checkout@v3
+
+         - name: Install Node.js
+           uses: actions/setup-node@v3
+           with:
+             node-version: 18
+
+         - name: Install dependencies
+           run: npm install
+
+         - name: Build and release (macOS)
+           if: matrix.os == 'macos-latest'
+           env:
+             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+             APPLE_ID: ${{ secrets.APPLE_ID }}
+             APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+             APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+             CSC_LINK: ${{ secrets.MAC_CERT_BASE64 }}
+             CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+           run: npm run dist:mac
+
+         - name: Build and release (Windows)
+           if: matrix.os == 'windows-latest'
+           env:
+             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+           run: npm run dist:win
+
+         - name: Build and release (Linux)
+           if: matrix.os == 'ubuntu-latest'
+           env:
+             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+           run: npm run dist:linux
+   ```
+
+2. **GitHub Secrets設定**
+   - `APPLE_ID`: Apple IDメールアドレス
+   - `APPLE_APP_SPECIFIC_PASSWORD`: App-Specific Password
+   - `APPLE_TEAM_ID`: Apple Developer Team ID
+   - `MAC_CERT_BASE64`: 証明書をBase64エンコードしたもの
+   - `MAC_CERT_PASSWORD`: 証明書のパスワード
+
+3. **リリースフロー**
+   ```bash
+   # バージョン更新
+   npm version patch  # または minor, major
+
+   # タグをプッシュ
+   git push origin --tags
+
+   # GitHub Actionsが自動的にビルド・リリース
+   ```
+
+#### コスト試算
+
+##### パターンA: macOSのみ（推奨）
+| 項目 | 初年度 | 2年目以降 |
+|------|--------|----------|
+| Apple Developer Program | $99 | $99/年 |
+| GitHub（無料プラン） | $0 | $0 |
+| **合計** | **$99** | **$99/年** |
+
+##### パターンB: macOS + Windows
+| 項目 | 初年度 | 2年目以降 |
+|------|--------|----------|
+| Apple Developer Program | $99 | $99/年 |
+| Windows Code Signing (Standard) | $150 | $150/年 |
+| GitHub（無料プラン） | $0 | $0 |
+| **合計** | **$249** | **$249/年** |
+
+#### Windows対応について
+- **証明書なしでも配布可能**
+- 初回起動時にWindows SmartScreen警告が表示される
+- ユーザーは「詳細情報」→「実行」で回避可能
+- 証明書取得により警告を軽減/削除可能
+
+#### 段階的導入アプローチ
+1. **まず証明書なしで実装・テスト**（無料）
+   - macOS: 警告あり（右クリック→開く で回避可能）
+   - Windows: SmartScreen警告（詳細情報→実行 で回避可能）
+
+2. **macOS証明書取得**（$99/年）
+   - macOSユーザーに対して警告なし配布
+   - 最優先で対応推奨
+
+3. **Windows証明書検討**（予算次第、$150-400/年）
+   - ユーザー数が増えてから検討
+   - Standard証明書でも効果あり
+
+#### トラブルシューティング
+
+##### macOSで「破損しているため開けません」
+- **原因**: 公証なし or 証明書なし
+- **解決**: App-Specific Passwordと公証スクリプト設定
+
+##### Windows SmartScreen警告
+- **原因**: コード署名なし or レピュテーション不足
+- **解決**: EV証明書取得 or ダウンロード数増加を待つ
+
+##### 更新チェックが動作しない
+- **原因**: `app.isPackaged` が false
+- **解決**: `npm run dist` でビルドしてテスト
+
+##### GitHub Releasesから404エラー
+- **原因**: リポジトリ名やOwner名が間違っている
+- **解決**: `electron-builder.yml` の publish 設定確認
+
+#### 実装チェックリスト
+
+**必須作業**
+- [ ] `electron-updater`, `electron-log` パッケージ追加
+- [ ] `src/main/updater.ts` 作成
+- [ ] `src/main/index.ts` に統合
+- [ ] `electron-builder.yml` に publish 設定追加
+- [ ] macOS用に `.zip` ターゲット追加
+- [ ] `package.json` のバージョン管理ルール決定
+- [ ] GitHub Releases 設定
+
+**macOS署名・公証（推奨）**
+- [ ] Apple Developer Program登録（$99/年）
+- [ ] Developer ID Application証明書取得
+- [ ] `build/entitlements.mac.plist` 作成
+- [ ] `scripts/notarize.js` 作成
+- [ ] App-Specific Password生成
+- [ ] 環境変数設定
+
+**CI/CD（推奨）**
+- [ ] `.github/workflows/release.yml` 作成
+- [ ] GitHub Secrets設定
+- [ ] タグベースのリリースフロー確立
+
+**テスト**
+- [ ] 開発環境で更新チェック動作確認
+- [ ] プロダクションビルドでテスト
+- [ ] GitHubでテストリリース作成
+- [ ] 自動更新フロー確認
+
+### Phase 12: その他の拡張機能 📋計画中
+
+#### 1. PCイベント連携強化
+- **画面ロック/アンロック検知**
+  - 自動休憩打刻への応用
+
+- **スリープ/復帰検知の拡張**
+  - より細かい制御
+
+#### 2. システム統合
+- **タスクトレイアイコン対応**
+  - システムトレイから起動
+
+- **タスクバー格納機能**
+  - 最小化時の動作改善
+
+- **ショートカットキー対応**
+  - グローバルショートカット
+
+#### 3. ユーザビリティ向上
+- **打刻リマインダー通知**
+  - 定時に通知
+
+- **refreshToken期限警告**
+  - 期限切れ前に通知
 
 ## 実装例
 

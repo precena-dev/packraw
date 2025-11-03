@@ -1,0 +1,50 @@
+appId: com.packraw.desktop.app
+productName: PackRaw
+directories:
+  output: dist
+  buildResources: build
+icon: build/icons/icon.png
+files:
+  - "dist/renderer/**/*"
+  - "dist/main/**/*"
+  - "dist/preload/**/*"
+  - "assets/**/*"
+  - "!src/**/*.ts"
+  - "!*.md"
+asarUnpack:
+  - "assets/**/*"
+
+# 自動更新設定（GitHub Releases）
+publish:
+  provider: github
+  owner: precena-dev
+  repo: freee-webview-app
+  releaseType: release
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  target:
+    - dmg
+    - zip
+  # macOS用自動起動設定
+  extendInfo:
+    NSSupportsAutomaticTermination: false
+    NSQuitAlwaysKeepsWindows: false
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  createStartMenuShortcut: true
+  createDesktopShortcut: true
+  runAfterFinish: true                     # インストール後に自動起動
+  oneClick: false                          # カスタムインストーラー
+  allowToChangeInstallationDirectory: true # インストール先変更可能
+  deleteAppDataOnUninstall: false          # アンインストール時に設定ファイルを保持
+  differentialPackage: true                # 差分更新を有効化
+linux:
+  target:
+    - AppImage
+    - deb
