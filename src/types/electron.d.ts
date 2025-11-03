@@ -17,6 +17,11 @@ interface BreakScheduleConfig {
 interface AutoTimeClockConfig {
   autoClockInOnStartup: boolean;
   autoClockOutOnShutdown: boolean;
+  autoClockOutAfterTime?: {
+    enabled: boolean;
+    time: string;
+  };
+  disableWeekends?: boolean;
 }
 
 interface AppConfig {

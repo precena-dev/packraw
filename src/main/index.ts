@@ -304,11 +304,6 @@ ipcMain.handle('freee-api-init', () => {
     // PowerMonitorService に FreeeApiService を設定
     if (powerMonitorService) {
       powerMonitorService.setFreeeApiService(freeeApiService);
-
-      // アプリ起動時の自動出勤チェック（非同期で実行、エラーは無視）
-      powerMonitorService.checkAutoClockInOnStartup().catch(error => {
-        console.error('[Main] Auto clock-in on startup failed:', error);
-      });
     }
 
     // BreakScheduler を初期化

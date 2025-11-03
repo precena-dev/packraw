@@ -309,6 +309,41 @@ export const ApiModePanel: React.FC = () => {
     };
   }, [isAuthorized, isToday, selectedDate]);
 
+  // アプリ起動時の自動出勤チェック
+  useEffect(() => {
+    const checkAutoClockIn = async () => {
+      // 認証済み、今日の日付、出勤ボタンが押せる状態の場合のみ
+      if (!isAuthorized || !isToday || !buttonStates.clockIn) {
+        return;
+      }
+
+      try {
+        // 自動出勤設定を確認
+        const config = await window.electronAPI.autoTimeClock.getConfig();
+        if (!config?.autoClockInOnStartup) {
+          return; // 設定がOFFなら何もしない
+        }
+
+        // 土日チェック（設定に応じて）
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+        if (isWeekend && config?.disableWeekends !== false) {
+          return; // 土日は自動出勤しない（disableWeekendsのデフォルトはtrue）
+        }
+
+        console.log('[AutoClockIn] Executing auto clock-in on startup...');
+        // 自動出勤実行
+        await handleTimeClock('clock_in');
+      } catch (error) {
+        console.error('[AutoClockIn] Auto clock-in failed:', error);
+      }
+    };
+
+    checkAutoClockIn();
+  }, [isAuthorized, isToday, buttonStates.clockIn]);
+
   // PowerMonitorイベントの監視
   useEffect(() => {
     if (!isAuthorized) {
@@ -316,11 +351,11 @@ export const ApiModePanel: React.FC = () => {
     }
 
     const handlePowerMonitorEvent = (eventType: string) => {
-      
+
       // 画面をリフレッシュ（ボタン状態と打刻履歴を更新）
       updateButtonStates();
       updateTimeClocks(selectedDate);
-      
+
       // 勤務記録も更新
       if (isToday) {
         try {
