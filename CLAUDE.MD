@@ -691,8 +691,8 @@ electron-updater + GitHub Releases を使用した自動更新機能の実装。
    ```yaml
    publish:
      - provider: github
-       owner: your-username
-       repo: freee-webview-app
+       owner: precena-dev
+       repo: packraw
        releaseType: release
 
    mac:

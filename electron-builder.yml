@@ -18,7 +18,7 @@ asarUnpack:
 publish:
   provider: github
   owner: precena-dev
-  repo: freee-webview-app
+  repo: packraw
   releaseType: release
 mac:
   category: public.app-category.productivity

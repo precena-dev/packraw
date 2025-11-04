@@ -59,7 +59,7 @@ PackRaw（パクロー）は、freeeの勤怠打刻をデスクトップから�
 
 #### GitHub Releasesからダウンロード（推奨）
 
-最新版は[GitHubのReleasesページ](https://github.com/precena-dev/freee-webview-app/releases)からダウンロードできます。
+最新版は[GitHubのReleasesページ](https://github.com/precena-dev/packraw/releases)からダウンロードできます。
 
 - **Windows（インストーラー版・推奨）**: `PackRaw-Setup-x.x.x.exe`
   - 自動更新対応 ✅
