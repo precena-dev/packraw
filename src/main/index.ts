@@ -22,6 +22,25 @@ let isQuitting = false; // アプリが終了中かどうかのフラグ
 function createWindow() {
   const windowConfig = configManager.getWindowConfig();
   
+  // プラットフォームに応じたアイコンパスを決定
+  let iconPath: string;
+  if (process.platform === 'win32') {
+    // Windows: .icoファイルを使用
+    iconPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'app.asar.unpacked', 'assets', 'icon.ico')
+      : path.join(__dirname, '../../assets/icon.ico');
+  } else if (process.platform === 'darwin') {
+    // macOS: .icnsファイルを使用（ただしBrowserWindowではPNGも使用可能）
+    iconPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'app.asar.unpacked', 'assets', 'icon_base.png')
+      : path.join(__dirname, '../../assets/icon_base.png');
+  } else {
+    // Linux: PNGファイルを使用
+    iconPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'app.asar.unpacked', 'assets', 'icon_base.png')
+      : path.join(__dirname, '../../assets/icon_base.png');
+  }
+
   mainWindow = new BrowserWindow({
     width: windowConfig.width,
     height: windowConfig.height,
@@ -29,9 +48,7 @@ function createWindow() {
     alwaysOnTop: windowConfig.alwaysOnTop,
     autoHideMenuBar: true,
     title: 'PackRaw',
-    icon: app.isPackaged 
-      ? path.join(process.resourcesPath, 'app.asar.unpacked', 'assets', 'icon_base.png')
-      : path.join(__dirname, '../../src/images/icon_base.png'),
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,

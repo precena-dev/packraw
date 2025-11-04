@@ -37,11 +37,13 @@ win:
       arch:
         - x64
 nsis:
+  oneClick: false                          # カスタムインストーラー
+  allowToChangeInstallationDirectory: true # インストール先変更可能
+  installerIcon: build/icon.ico            # インストーラーのアイコン
+  uninstallerIcon: build/icon.ico          # アンインストーラーのアイコン
   createStartMenuShortcut: true
   createDesktopShortcut: true
   runAfterFinish: true                     # インストール後に自動起動
-  oneClick: false                          # カスタムインストーラー
-  allowToChangeInstallationDirectory: true # インストール先変更可能
   deleteAppDataOnUninstall: false          # アンインストール時に設定ファイルを保持
   differentialPackage: true                # 差分更新を有効化
 linux:
