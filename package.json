@@ -1,6 +1,6 @@
 {
   "name": "packraw-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "パクロー（PackRaw）デスクトップアプリケーション",
   "main": "dist/main/index.js",
   "scripts": {
