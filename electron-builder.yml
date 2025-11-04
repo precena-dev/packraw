@@ -2,8 +2,7 @@ appId: com.packraw.desktop.app
 productName: PackRaw
 directories:
   output: dist
-  buildResources: build
-icon: build/icons/icon.png
+  buildResources: resources
 files:
   - "dist/renderer/**/*"
   - "dist/main/**/*"
@@ -22,7 +21,7 @@ publish:
   releaseType: release
 mac:
   category: public.app-category.productivity
-  icon: build/icon.icns
+  icon: resources/icons/icon.icns
   target:
     - dmg
     - zip
@@ -31,7 +30,7 @@ mac:
     NSSupportsAutomaticTermination: false
     NSQuitAlwaysKeepsWindows: false
 win:
-  icon: build/icon.ico
+  icon: resources/icons/icon.ico
   target:
     - target: nsis
       arch:
@@ -39,8 +38,8 @@ win:
 nsis:
   oneClick: false                          # カスタムインストーラー
   allowToChangeInstallationDirectory: true # インストール先変更可能
-  installerIcon: build/icon.ico            # インストーラーのアイコン
-  uninstallerIcon: build/icon.ico          # アンインストーラーのアイコン
+  installerIcon: resources/icons/icon.ico  # インストーラーのアイコン
+  uninstallerIcon: resources/icons/icon.ico # アンインストーラーのアイコン
   createStartMenuShortcut: true
   createDesktopShortcut: true
   runAfterFinish: true                     # インストール後に自動起動
