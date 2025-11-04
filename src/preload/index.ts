@@ -50,5 +50,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   autoTimeClock: {
     getConfig: () => ipcRenderer.invoke('auto-time-clock-get-config'),
     updateConfig: (config: any) => ipcRenderer.invoke('auto-time-clock-update-config', config),
+  },
+
+  // AutoUpdate API
+  autoUpdate: {
+    getConfig: () => ipcRenderer.invoke('auto-update-get-config'),
+    setEnabled: (enabled: boolean) => ipcRenderer.invoke('auto-update-set-enabled', enabled),
+  },
+
+  // App情報API
+  app: {
+    getVersion: () => ipcRenderer.invoke('app-get-version'),
   }
 });

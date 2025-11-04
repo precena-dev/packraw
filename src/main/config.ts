@@ -13,6 +13,9 @@ export interface AppConfig {
     developer?: {
       showDevTools: boolean;
     };
+    autoUpdate?: {
+      enabled: boolean;
+    };
   };
   api?: {
     clientId: string;
@@ -38,6 +41,9 @@ const defaultConfig: AppConfig = {
     },
     developer: {
       showDevTools: false
+    },
+    autoUpdate: {
+      enabled: true  // デフォルトで自動更新を有効化
     }
   }
 };
@@ -178,5 +184,16 @@ export class ConfigManager {
     (this.store as any).set('app.autoTimeClock', newConfig);
     console.log('AutoTimeClock config updated:', newConfig);
     return newConfig;
+  }
+
+  // AutoUpdate設定を取得
+  getAutoUpdateConfig() {
+    return (this.store as any).get('app.autoUpdate', defaultConfig.app.autoUpdate);
+  }
+
+  // AutoUpdate設定を更新
+  setAutoUpdateEnabled(enabled: boolean) {
+    (this.store as any).set('app.autoUpdate.enabled', enabled);
+    console.log('AutoUpdate enabled set to:', enabled);
   }
 }

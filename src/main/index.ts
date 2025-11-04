@@ -231,7 +231,7 @@ app.whenReady().then(() => {
 
   // UpdaterService を初期化（自動更新）
   if (mainWindow) {
-    updaterService = new UpdaterService(mainWindow);
+    updaterService = new UpdaterService(mainWindow, configManager);
   }
 
   app.on('activate', () => {
@@ -573,6 +573,21 @@ ipcMain.handle('auto-time-clock-get-config', () => {
 
 ipcMain.handle('auto-time-clock-update-config', (_event, config) => {
   return configManager.updateAutoTimeClockConfig(config);
+});
+
+// AutoUpdate設定のハンドラー
+ipcMain.handle('auto-update-get-config', () => {
+  return configManager.getAutoUpdateConfig();
+});
+
+ipcMain.handle('auto-update-set-enabled', (_event, enabled: boolean) => {
+  configManager.setAutoUpdateEnabled(enabled);
+  return { success: true };
+});
+
+// アプリバージョン取得
+ipcMain.handle('app-get-version', () => {
+  return app.getVersion();
 });
 
 // 自動更新関連のハンドラー

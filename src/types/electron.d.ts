@@ -19,6 +19,10 @@ interface AutoTimeClockConfig {
   autoClockOutOnShutdown: boolean;
 }
 
+interface AutoUpdateConfig {
+  enabled: boolean;
+}
+
 interface AppConfig {
   app: {
     window: {
@@ -31,6 +35,7 @@ interface AppConfig {
     };
     breakSchedule?: BreakScheduleConfig;
     autoTimeClock?: AutoTimeClockConfig;
+    autoUpdate?: AutoUpdateConfig;
   };
   api?: {
     clientId: string;
@@ -86,6 +91,13 @@ declare global {
       autoTimeClock: {
         getConfig: () => Promise<AutoTimeClockConfig>;
         updateConfig: (config: Partial<AutoTimeClockConfig>) => Promise<AutoTimeClockConfig>;
+      };
+      autoUpdate: {
+        getConfig: () => Promise<AutoUpdateConfig>;
+        setEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
+      };
+      app: {
+        getVersion: () => Promise<string>;
       };
     };
   }

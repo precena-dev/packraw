@@ -1,6 +1,7 @@
 import { autoUpdater } from 'electron-updater';
-import { dialog, BrowserWindow, app } from 'electron';
+import { dialog, BrowserWindow, app, shell } from 'electron';
 import log from 'electron-log';
+import { ConfigManager } from './config';
 
 /**
  * 自動更新サービス
@@ -8,9 +9,12 @@ import log from 'electron-log';
  */
 export class UpdaterService {
   private mainWindow: BrowserWindow;
+  private configManager: ConfigManager;
+  private readonly GITHUB_RELEASES_URL = 'https://github.com/precena-dev/packraw/releases';
 
-  constructor(mainWindow: BrowserWindow) {
+  constructor(mainWindow: BrowserWindow, configManager: ConfigManager) {
     this.mainWindow = mainWindow;
+    this.configManager = configManager;
     this.setupAutoUpdater();
   }
 
@@ -29,15 +33,17 @@ export class UpdaterService {
       return;
     }
 
-    // 起動30秒後に初回更新チェック
+    // 自動更新が無効の場合はスキップ
+    const autoUpdateConfig = this.configManager.getAutoUpdateConfig();
+    if (!autoUpdateConfig.enabled) {
+      log.info('自動更新が無効になっています');
+      return;
+    }
+
+    // 起動30秒後に更新チェック（1回のみ）
     setTimeout(() => {
       this.checkForUpdates();
     }, 30000);
-
-    // 6時間ごとに定期的な更新チェック
-    setInterval(() => {
-      this.checkForUpdates();
-    }, 6 * 3600000);
 
     // イベントハンドラーの設定
     this.setupEventHandlers();
@@ -53,6 +59,26 @@ export class UpdaterService {
     autoUpdater.on('update-available', (info) => {
       log.info('更新が利用可能:', info.version);
 
+      // macOSの場合は手動ダウンロードを促す
+      if (process.platform === 'darwin') {
+        dialog.showMessageBox(this.mainWindow, {
+          type: 'info',
+          title: '更新が利用可能',
+          message: `PackRaw ${info.version} が利用可能です`,
+          detail: `最新版のDMGファイルをGitHub Releasesページよりダウンロードしてインストールしてください。\n\n${this.GITHUB_RELEASES_URL}`,
+          buttons: ['リリースページを開く', '後で'],
+          defaultId: 0,
+          cancelId: 1
+        }).then((result) => {
+          if (result.response === 0) {
+            // ブラウザでGitHub Releasesページを開く
+            shell.openExternal(this.GITHUB_RELEASES_URL);
+          }
+        });
+        return;
+      }
+
+      // Windows/Linuxの場合は自動ダウンロード
       dialog.showMessageBox(this.mainWindow, {
         type: 'info',
         title: '更新が利用可能',
@@ -133,6 +159,13 @@ export class UpdaterService {
   checkForUpdates() {
     if (!app.isPackaged) {
       log.info('開発環境のため更新チェックをスキップ');
+      return;
+    }
+
+    // 自動更新が無効の場合はスキップ
+    const autoUpdateConfig = this.configManager.getAutoUpdateConfig();
+    if (!autoUpdateConfig.enabled) {
+      log.info('自動更新が無効になっています');
       return;
     }
 

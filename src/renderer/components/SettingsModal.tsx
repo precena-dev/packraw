@@ -40,6 +40,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [configPath, setConfigPath] = useState<string>('');
+  const [appVersion, setAppVersion] = useState<string>('');
+
+  // プラットフォーム判定（UserAgentから）
+  const isMacOS = navigator.userAgent.includes('Mac');
 
   // 休憩予約設定のローカルステート
   const [breakEnabled, setBreakEnabled] = useState(false);
@@ -58,11 +62,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // 土日打刻無効化設定のローカルステート
   const [disableWeekends, setDisableWeekends] = useState(true);
 
-  // 設定ファイルパスを取得
+  // 自動更新設定のローカルステート
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
+
+  // 設定ファイルパスとバージョン情報を取得
   useEffect(() => {
     if (isOpen) {
       window.electronAPI.getConfigPath().then(path => {
         setConfigPath(path);
+      });
+      window.electronAPI.app.getVersion().then(version => {
+        setAppVersion(version);
+      });
+    }
+  }, [isOpen]);
+
+  // 自動更新設定の初期化
+  useEffect(() => {
+    if (isOpen) {
+      window.electronAPI.autoUpdate.getConfig().then(config => {
+        setAutoUpdateEnabled(config.enabled);
       });
     }
   }, [isOpen]);
@@ -236,6 +255,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setDisableWeekends(newValue);
     } catch (error) {
       console.error('Failed to toggle disable weekends:', error);
+    }
+  };
+
+  const handleToggleAutoUpdate = async () => {
+    try {
+      const newValue = !autoUpdateEnabled;
+      await window.electronAPI.autoUpdate.setEnabled(newValue);
+      setAutoUpdateEnabled(newValue);
+    } catch (error) {
+      console.error('Failed to toggle auto update:', error);
     }
   };
 
@@ -498,12 +527,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* 設定ファイル情報 */}
+          {/* 自動更新設定 */}
           <div className="setting-section">
-            <h3 className="setting-section-title">設定ファイル情報</h3>
+            <h3 className="setting-section-title">自動更新設定</h3>
+            <div className="setting-item">
+              <div className="setting-item-content">
+                <div className="setting-item-label">
+                  <span className="setting-item-name">自動更新</span>
+                  <span className="setting-item-description">
+                    新しいバージョンが利用可能になったときに通知します
+                    {isMacOS && '（macOSは手動更新）'}
+                  </span>
+                </div>
+                <div className="setting-item-control">
+                  <button
+                    onClick={handleToggleAutoUpdate}
+                    className={`setting-toggle ${autoUpdateEnabled ? 'enabled' : 'disabled'}`}
+                    disabled={isLoading}
+                  >
+                    <div className="setting-toggle-track">
+                      <div className="setting-toggle-thumb"></div>
+                    </div>
+                    <span className="setting-toggle-label">
+                      {autoUpdateEnabled ? '有効' : '無効'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* アプリ情報 */}
+          <div className="setting-section">
+            <h3 className="setting-section-title">アプリ情報</h3>
+            {appVersion && (
+              <div className="setting-detail">
+                <h4 className="setting-detail-title">バージョン</h4>
+                <p className="setting-detail-note">
+                  {appVersion}
+                </p>
+              </div>
+            )}
             {configPath && (
               <div className="setting-detail">
-                <h4 className="setting-detail-title">ファイルパス</h4>
+                <h4 className="setting-detail-title">設定ファイルパス</h4>
                 <p className="setting-detail-note" style={{ wordBreak: 'break-all', fontSize: '11px' }}>
                   {configPath}
                 </p>
