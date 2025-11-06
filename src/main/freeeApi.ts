@@ -223,11 +223,20 @@ export class FreeeApiService {
 
     this.config.accessToken = response.data.access_token;
     this.config.refreshToken = response.data.refresh_token;
-    
+
     // リフレッシュトークンの有効期限を設定（90日後）
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 90);
     this.config.refreshTokenExpiresAt = expiresAt.toISOString();
+
+    // 設定ファイルに保存（初回認証時に保存）
+    if (this.configManager) {
+      this.configManager.saveTokensToConfig(
+        this.config.accessToken,
+        this.config.refreshToken,
+        this.config.refreshTokenExpiresAt
+      );
+    }
   }
 
   private async refreshAccessToken(): Promise<void> {
@@ -246,6 +255,15 @@ export class FreeeApiService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 90);
     this.config.refreshTokenExpiresAt = expiresAt.toISOString();
+
+    // 設定ファイルに保存（トークンリフレッシュ時に確実に保存）
+    if (this.configManager) {
+      this.configManager.saveTokensToConfig(
+        this.config.accessToken,
+        this.config.refreshToken,
+        this.config.refreshTokenExpiresAt
+      );
+    }
 
     // リフレッシュが成功したらカウンターをリセット
     this.refreshAttempts = 0;

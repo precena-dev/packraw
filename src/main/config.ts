@@ -196,4 +196,21 @@ export class ConfigManager {
     (this.store as any).set('app.autoUpdate.enabled', enabled);
     console.log('AutoUpdate enabled set to:', enabled);
   }
+
+  // トークン情報を設定ファイルに保存
+  saveTokensToConfig(accessToken?: string, refreshToken?: string, refreshTokenExpiresAt?: string) {
+    const currentConfig = this.getConfig();
+
+    this.updateConfig({
+      ...currentConfig,
+      api: {
+        ...currentConfig.api!,
+        accessToken,
+        refreshToken,
+        refreshTokenExpiresAt,
+      }
+    });
+
+    console.log('Tokens saved to config');
+  }
 }
