@@ -18,6 +18,7 @@ interface TimeClockButtonState {
 }
 
 export const ApiModePanel: React.FC = () => {
+  const [isInitialized, setIsInitialized] = useState(false);
   const [isApiInitialized, setIsApiInitialized] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
@@ -112,6 +113,8 @@ export const ApiModePanel: React.FC = () => {
       }
     } catch (err) {
       setError('APIの初期化に失敗しました');
+    } finally {
+      setIsInitialized(true);
     }
   };
 
@@ -816,6 +819,19 @@ export const ApiModePanel: React.FC = () => {
     }
   };
 
+  // 初期化中は「ログイン中...」を表示
+  if (!isInitialized) {
+    return (
+      <div className="h-full flex items-center justify-center bg-blue-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">ログイン中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 初期化完了後、API設定がない場合のみエラー表示
   if (!isApiInitialized) {
     return (
       <div className="h-full flex items-center justify-center bg-blue-50">

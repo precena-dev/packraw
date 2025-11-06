@@ -300,7 +300,7 @@ ipcMain.handle('set-api-config', (_event, apiConfig) => {
 
 
 // freee API関連のハンドラー
-ipcMain.handle('freee-api-init', () => {
+ipcMain.handle('freee-api-init', async() => {
   const config = configManager.getConfig();
   console.log('ConfigManager.getConfig():', JSON.stringify(config, null, 2));
   console.log('Config file path:', configManager.getConfigPath());
@@ -323,7 +323,7 @@ ipcMain.handle('freee-api-init', () => {
       powerMonitorService.setFreeeApiService(freeeApiService);
 
       // アプリ起動時の自動出勤チェック（非同期で実行、エラーは無視）
-      powerMonitorService.checkAutoClockInOnStartup().catch(error => {
+      await powerMonitorService.checkAutoClockInOnStartup().catch(error => {
         console.error('[Main] Auto clock-in on startup failed:', error);
       });
     }
@@ -332,7 +332,7 @@ ipcMain.handle('freee-api-init', () => {
     breakScheduler = new BreakScheduler(configManager, freeeApiService);
     const breakConfig = breakScheduler.getConfig();
     if (breakConfig.enabled) {
-      breakScheduler.start();
+      await breakScheduler.start();
     }
 
     return true;
