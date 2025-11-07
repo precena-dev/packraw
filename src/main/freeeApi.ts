@@ -34,6 +34,7 @@ export interface TimeClock {
   datetime: string;
   original_datetime: string;
   note: string;
+  source: 'work_record' | 'time_clocks';
 }
 
 export interface TimeClockButtonState {
@@ -323,7 +324,6 @@ export class FreeeApiService {
         }
       );
 
-
       // レスポンス構造を確認
       if (!response.data) {
         return null;
@@ -336,7 +336,6 @@ export class FreeeApiService {
         clockInAt: record.clock_in_at,
         clockOutAt: record.clock_out_at,
       }));
-
 
       return {
         date: data.date || date,
@@ -378,6 +377,7 @@ export class FreeeApiService {
             datetime: workRecord.clockInAt,
             original_datetime: workRecord.clockInAt,
             note: '',
+            source: 'work_record',
           });
         }
 
@@ -392,6 +392,7 @@ export class FreeeApiService {
                 datetime: breakRecord.clockInAt,
                 original_datetime: breakRecord.clockInAt,
                 note: '',
+                source: 'work_record',
               });
             }
             if (breakRecord.clockOutAt) {
@@ -402,6 +403,7 @@ export class FreeeApiService {
                 datetime: breakRecord.clockOutAt,
                 original_datetime: breakRecord.clockOutAt,
                 note: '',
+                source: 'work_record',
               });
             }
           }
@@ -416,6 +418,7 @@ export class FreeeApiService {
             datetime: workRecord.clockOutAt,
             original_datetime: workRecord.clockOutAt,
             note: '',
+            source: 'work_record',
           });
         }
 
@@ -506,7 +509,13 @@ export class FreeeApiService {
         break;
       }
 
-      allTimeClocks.push(...timeClocks);
+      // source プロパティを追加
+      const timeClocksWithSource = timeClocks.map((tc: any) => ({
+        ...tc,
+        source: 'time_clocks' as const,
+      }));
+
+      allTimeClocks.push(...timeClocksWithSource);
 
       // 取得したレコード数がlimit未満なら、次のページはない
       if (timeClocks.length < limit) {
@@ -520,22 +529,37 @@ export class FreeeApiService {
   }
 
   async getLastTimeClockType(): Promise<string | null> {
-    
     try {
       const today = this.getJSTDate();
       const timeClocks = await this.getTimeClocks(today, today);
-      
+
       if (!timeClocks || timeClocks.length === 0) {
         return null;
       }
-      
-      // 最新の打刻を取得（datetimeでソート）
-      const sortedClocks = timeClocks.sort((a, b) => 
-        new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
-      );
-      
+
+      // 打刻タイプの優先順位を定義
+      const typeOrder: Record<string, number> = {
+        'clock_in': 1,
+        'break_begin': 2,
+        'break_end': 3,
+        'clock_out': 4,
+      };
+
+      // 最新の打刻を取得（datetimeでソート、同じ時刻の場合はタイプの順序でソート）
+      const sortedClocks = timeClocks.sort((a, b) => {
+        const timeA = new Date(a.datetime).getTime();
+        const timeB = new Date(b.datetime).getTime();
+
+        // 時刻が異なる場合は時刻で降順ソート
+        if (timeA !== timeB) {
+          return timeB - timeA;
+        }
+
+        // 時刻が同じ場合は、タイプの順序で降順ソート（後の打刻を優先）
+        return (typeOrder[b.type] || 0) - (typeOrder[a.type] || 0);
+      });
+
       const lastClock = sortedClocks[0];
-      
       return lastClock.type;
     } catch (error) {
       console.error('Error getting last time clock type:', error);
@@ -544,10 +568,9 @@ export class FreeeApiService {
   }
 
   async getAvailableTimeClockTypes(): Promise<string[]> {
-    
     try {
       const lastType = await this.getLastTimeClockType();
-      
+
       switch (lastType) {
         case null: // 未打刻
           return ['clock_in'];
@@ -569,10 +592,9 @@ export class FreeeApiService {
   }
 
   async getTimeClockButtonStates(): Promise<TimeClockButtonState> {
-    
     try {
       const availableTypes = await this.getAvailableTimeClockTypes();
-      
+
       return {
         clockIn: availableTypes.includes('clock_in'),
         clockOut: availableTypes.includes('clock_out'),

@@ -909,8 +909,8 @@ export const ApiModePanel: React.FC = () => {
       ) : (
         // 過去日の場合
         <div className="control-panel">
-          {todayTimeClocks.length === 0 ? (
-            // 記録がない場合、勤怠登録ボタンを表示
+          {(todayTimeClocks.length === 0 || todayTimeClocks[0]?.source === 'time_clocks') ? (
+            // work_recordがない場合、勤怠登録ボタンを表示
             <button
               onClick={handleOpenCreateWorkRecord}
               disabled={loading}
@@ -923,7 +923,7 @@ export const ApiModePanel: React.FC = () => {
               勤怠の登録
             </button>
           ) : (
-            // 記録がある場合、削除ボタンを表示
+            // work_recordがある場合、削除ボタンを表示
             <button
               onClick={() => setIsDeleteWorkRecordModalOpen(true)}
               disabled={loading}

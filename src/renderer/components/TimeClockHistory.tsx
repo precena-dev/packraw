@@ -14,17 +14,17 @@ interface TimeClockHistoryProps {
 export const TimeClockHistory: React.FC<TimeClockHistoryProps> = ({ todayTimeClocks, onEditBreak, onAddBreak, onDeleteBreak, onEditClockIn, onEditClockOut, loading = false, nextSchedule, showScheduleIndicator = false, isPowerMonitorEnabled = false }) => {
   const formatTime = (datetime: string) => {
     const date = new Date(datetime);
-    return date.toLocaleTimeString('ja-JP', { 
-      hour: '2-digit', 
+    return date.toLocaleTimeString('ja-JP', {
+      hour: '2-digit',
       minute: '2-digit',
-      hour12: false 
+      hour12: false
     });
   };
 
   // 打刻データを整理
   const clockIn = todayTimeClocks.find(tc => tc.type === 'clock_in');
   const clockOut = todayTimeClocks.find(tc => tc.type === 'clock_out');
-  
+
   // 休憩データを時系列でペアリング
   const breakBegins = todayTimeClocks.filter(tc => tc.type === 'break_begin').sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
   const breakEnds = todayTimeClocks.filter(tc => tc.type === 'break_end').sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
