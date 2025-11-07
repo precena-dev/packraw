@@ -16,6 +16,9 @@ export interface AppConfig {
     autoUpdate?: {
       enabled: boolean;
     };
+    startup?: {
+      openAtLogin: boolean;
+    };
   };
   api?: {
     clientId: string;
@@ -44,6 +47,9 @@ const defaultConfig: AppConfig = {
     },
     autoUpdate: {
       enabled: true  // デフォルトで自動更新を有効化
+    },
+    startup: {
+      openAtLogin: false  // デフォルトは自動起動無効
     }
   }
 };
@@ -212,5 +218,16 @@ export class ConfigManager {
     });
 
     console.log('Tokens saved to config');
+  }
+
+  // Startup設定を取得
+  getStartupConfig() {
+    return (this.store as any).get('app.startup', defaultConfig.app.startup);
+  }
+
+  // Startup設定を更新
+  setStartupEnabled(enabled: boolean) {
+    (this.store as any).set('app.startup.openAtLogin', enabled);
+    console.log('Startup openAtLogin set to:', enabled);
   }
 }

@@ -58,6 +58,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setEnabled: (enabled: boolean) => ipcRenderer.invoke('auto-update-set-enabled', enabled),
   },
 
+  // Startup API
+  startup: {
+    getSettings: () => ipcRenderer.invoke('startup-get-settings'),
+    setEnabled: (enabled: boolean) => ipcRenderer.invoke('startup-set-enabled', enabled),
+    checkPlatform: () => ipcRenderer.invoke('startup-check-platform'),
+  },
+
   // App情報API
   app: {
     getVersion: () => ipcRenderer.invoke('app-get-version'),

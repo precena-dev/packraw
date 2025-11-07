@@ -17,6 +17,13 @@ interface AutoTimeClockConfig {
   disableWeekends?: boolean;
 }
 
+interface StartupSettings {
+  openAtLogin: boolean;
+  savedOpenAtLogin: boolean;
+  platform: string;
+  supported: boolean;
+}
+
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +33,8 @@ interface SettingsModalProps {
   onUpdateBreakSchedule?: (config: Partial<BreakScheduleConfig>) => Promise<void>;
   autoTimeClockConfig?: AutoTimeClockConfig;
   onUpdateAutoTimeClock?: (config: Partial<AutoTimeClockConfig>) => Promise<void>;
+  startupSettings?: StartupSettings;
+  onUpdateStartup?: (enabled: boolean) => Promise<void>;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -36,7 +45,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   breakScheduleConfig,
   onUpdateBreakSchedule,
   autoTimeClockConfig,
-  onUpdateAutoTimeClock
+  onUpdateAutoTimeClock,
+  startupSettings,
+  onUpdateStartup
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [configPath, setConfigPath] = useState<string>('');
@@ -65,6 +76,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // 自動更新設定のローカルステート
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
 
+  // 自動起動設定のローカルステート
+  const [openAtLogin, setOpenAtLogin] = useState(false);
+  const [startupSupported, setStartupSupported] = useState(true);
+
   // 設定ファイルパスとバージョン情報を取得
   useEffect(() => {
     if (isOpen) {
@@ -85,6 +100,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       });
     }
   }, [isOpen]);
+
+  // 自動起動設定の初期化
+  useEffect(() => {
+    if (isOpen && startupSettings) {
+      setOpenAtLogin(startupSettings.openAtLogin);
+      setStartupSupported(startupSettings.supported);
+    }
+  }, [isOpen, startupSettings]);
 
   // 休憩予約設定の初期化
   useEffect(() => {
@@ -268,6 +291,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handleToggleStartup = async () => {
+    if (!onUpdateStartup) return;
+
+    try {
+      const newValue = !openAtLogin;
+      await onUpdateStartup(newValue);
+      setOpenAtLogin(newValue);
+    } catch (error) {
+      console.error('Failed to toggle startup:', error);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -375,6 +410,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 ランダム誤差により、設定時刻の前後数分のランダムなタイミングで打刻されます
               </p>
             </div>
+          </div>
+
+          {/* 起動設定 */}
+          <div className="setting-section">
+            <h3 className="setting-section-title">起動設定</h3>
+
+            <div className="setting-item">
+              <div className="setting-item-content">
+                <div className="setting-item-label">
+                  <span className="setting-item-name">ログイン時に<br/>自動起動</span>
+                  <p className="setting-item-description">
+                    {startupSupported
+                      ? 'ログイン時にPackRawを自動的に起動します'
+                      : 'この機能はmacOS/Windowsのみ対応しています'}
+                  </p>
+                </div>
+                <div className="setting-item-control">
+                  <button
+                    onClick={handleToggleStartup}
+                    disabled={!startupSupported}
+                    className={`setting-toggle ${openAtLogin ? 'enabled' : 'disabled'}`}
+                    style={{ opacity: !startupSupported ? 0.5 : 1, cursor: !startupSupported ? 'not-allowed' : 'pointer' }}
+                  >
+                    <div className="setting-toggle-track">
+                      <div className="setting-toggle-thumb"></div>
+                    </div>
+                    <span className="setting-toggle-label">
+                      {openAtLogin ? '有効' : '無効'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {startupSupported && (
+              <div className="setting-detail">
+                <p className="setting-detail-note">
+                  <strong>macOS:</strong> システム環境設定 &gt; ユーザとグループ &gt; ログイン項目<br/>
+                  <strong>Windows:</strong> タスクマネージャー &gt; スタートアップ
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 自動出勤・退勤機能 */}

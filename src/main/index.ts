@@ -191,7 +191,16 @@ function forceQuitApp() {
 app.whenReady().then(() => {
   // アプリ名を設定（Dockに表示される名前）
   app.setName('PackRaw');
-  
+
+  // 保存されている自動起動設定をOS側に反映
+  const startupConfig = configManager.getStartupConfig();
+  if (startupConfig) {
+    app.setLoginItemSettings({
+      openAtLogin: startupConfig.openAtLogin
+    });
+    console.log('Startup setting restored:', startupConfig.openAtLogin);
+  }
+
   // macOSのDockメニューをカスタマイズ
   if (process.platform === 'darwin') {
     const dockMenu = Menu.buildFromTemplate([
@@ -219,7 +228,7 @@ app.whenReady().then(() => {
     ]);
     app.dock?.setMenu(dockMenu);
   }
-  
+
   createWindow();
   createTray();
 
@@ -504,4 +513,41 @@ ipcMain.handle('app-get-version', () => {
 ipcMain.handle('check-for-updates', () => {
   if (!updaterService) throw new Error('Updater service not initialized');
   updaterService.checkForUpdates();
+});
+
+// 自動起動設定関連のハンドラー
+ipcMain.handle('startup-get-settings', () => {
+  const loginSettings = app.getLoginItemSettings();
+  const savedConfig = configManager.getStartupConfig();
+  return {
+    openAtLogin: loginSettings.openAtLogin,
+    savedOpenAtLogin: savedConfig?.openAtLogin ?? false,
+    platform: process.platform,
+    supported: process.platform === 'darwin' || process.platform === 'win32'
+  };
+});
+
+ipcMain.handle('startup-set-enabled', (_event, enabled: boolean) => {
+  // OS側のスタートアップに登録/解除
+  app.setLoginItemSettings({
+    openAtLogin: enabled
+  });
+
+  // config.jsonにも保存（設定の永続化）
+  configManager.setStartupEnabled(enabled);
+
+  // 変更後の状態を返す
+  const loginSettings = app.getLoginItemSettings();
+  return {
+    openAtLogin: loginSettings.openAtLogin,
+    platform: process.platform,
+    supported: process.platform === 'darwin' || process.platform === 'win32'
+  };
+});
+
+ipcMain.handle('startup-check-platform', () => {
+  return {
+    platform: process.platform,
+    supported: process.platform === 'darwin' || process.platform === 'win32'
+  };
 });
