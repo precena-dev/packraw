@@ -146,6 +146,80 @@ TEST_REAL_API=true npm test
 
 ISC License
 
+## リリースとアップデート
+
+### 自動更新機能
+
+PackRawは自動更新機能を搭載しています。新しいバージョンがリリースされると、アプリケーションが自動的に検出し、更新を促します。
+
+**更新チェックのタイミング**:
+- アプリ起動後5秒後に初回チェック
+- その後24時間ごとに定期チェック
+
+**更新手順**:
+1. 新バージョンが利用可能になると通知ダイアログが表示されます
+2. 「ダウンロード」をクリックすると自動的にダウンロードが開始されます
+3. ダウンロード完了後、「再起動して更新」をクリックします
+4. アプリが再起動し、新バージョンが適用されます
+
+**注意**: macOSでは現在手動更新のみ対応しています。最新版は[GitHubリリースページ](https://github.com/precena-dev/freee-webview-app/releases)からダウンロードしてください。
+
+### バージョン履歴
+
+最新のリリース情報は[GitHubリリースページ](https://github.com/precena-dev/freee-webview-app/releases)をご覧ください。
+
+## 開発者向け: リリース手順
+
+### パッチリリース（バグ修正）
+
+```bash
+# 1. バグを修正してコミット
+git add .
+git commit -m "fix: バグの説明"
+
+# 2. パッチバージョンアップ（2.5.0 → 2.5.1）
+npm version patch
+# 自動的に以下が実行される:
+# - package.jsonのバージョン更新
+# - 自動コミット（メッセージ: "v2.5.1"）
+# - Gitタグ作成（タグ名: "v2.5.1"）
+
+# 3. 変更をプッシュ
+git push origin main --tags
+```
+
+### マイナーリリース（新機能追加）
+
+```bash
+# 1. 機能を実装してコミット
+git add .
+git commit -m "feat: 新機能の説明"
+
+# 2. マイナーバージョンアップ（2.5.0 → 2.6.0）
+npm version minor
+
+# 3. 変更をプッシュ
+git push origin main --tags
+```
+
+### メジャーリリース（破壊的変更）
+
+```bash
+# 1. 破壊的変更を実装してコミット
+git add .
+git commit -m "feat!: 破壊的変更の説明"
+
+# 2. メジャーバージョンアップ（2.5.0 → 3.0.0）
+npm version major
+
+# 3. 変更をプッシュ
+git push origin main --tags
+```
+
+**自動ビルド**: タグをプッシュすると、GitHub Actionsが自動的にビルドを実行し、macOS/Windows/Linux向けの配布パッケージを作成してGitHub Releasesに公開します（約10-15分）。
+
+詳細な開発ガイドラインは [CLAUDE.md](CLAUDE.md) を参照してください。
+
 ## 貢献
 
 Issue や Pull Request は歓迎です。（らしい）
