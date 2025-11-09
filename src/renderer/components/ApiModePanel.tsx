@@ -48,6 +48,7 @@ export const ApiModePanel: React.FC = () => {
   const [autoTimeClockConfig, setAutoTimeClockConfig] = useState<any>(null);
   const [startupSettings, setStartupSettings] = useState<any>(null);
   const [datesWithRecords, setDatesWithRecords] = useState<string[]>([]);
+  const [retryStatus, setRetryStatus] = useState<{ attempt: number; maxAttempts: number } | null>(null);
 
   // 日本時間での今日の日付を取得するヘルパー関数
   const getJSTDateString = (date: Date = new Date()): string => {
@@ -60,6 +61,16 @@ export const ApiModePanel: React.FC = () => {
     const today = getJSTDateString();
     setSelectedDate(today);
     initializeApi();
+
+    // リトライ状態のリスナーを登録
+    window.electronAPI.freeeApi.onEmployeeInfoRetry((data) => {
+      setRetryStatus(data);
+    });
+
+    // クリーンアップ
+    return () => {
+      window.electronAPI.freeeApi.removeEmployeeInfoRetryListener();
+    };
   }, []);
 
 
@@ -846,6 +857,11 @@ export const ApiModePanel: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-lg text-gray-700">ログイン中...</p>
+          {retryStatus && (
+            <p className="text-sm text-gray-500 mt-2">
+              ネットワーク接続待機中... ({retryStatus.attempt}/{retryStatus.maxAttempts})
+            </p>
+          )}
         </div>
       </div>
     );

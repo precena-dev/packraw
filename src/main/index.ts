@@ -372,14 +372,21 @@ ipcMain.handle('freee-api-authorize', async () => {
 
 ipcMain.handle('freee-api-get-employee-info', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  
+
   try {
-    const info = await freeeApiService.getEmployeeInfo();
-    
+    // リトライコールバック: リトライ状態をレンダラープロセスに通知
+    const retryCallback = (attempt: number, maxAttempts: number) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('employee-info-retry', { attempt, maxAttempts });
+      }
+    };
+
+    const info = await freeeApiService.getEmployeeInfo(retryCallback);
+
     // 最新のトークン情報を保存（リフレッシュされた可能性があるため）
     const apiConfig = freeeApiService.getConfig();
     const currentConfig = configManager.getConfig();
-    
+
     const updatedConfig = {
       ...currentConfig,
       api: {
@@ -389,21 +396,21 @@ ipcMain.handle('freee-api-get-employee-info', async () => {
         refreshTokenExpiresAt: apiConfig.refreshTokenExpiresAt,
       }
     };
-    
+
     // 従業員IDを設定ファイルに保存
     if (info.employee?.id) {
       updatedConfig.api.employeeId = info.employee.id;
       freeeApiService.updateConfig({ employeeId: info.employee.id });
     }
-    
+
     configManager.updateConfig(updatedConfig);
-    
+
     return info;
   } catch (error) {
     // エラーでも最新のトークン情報は保存する
     const apiConfig = freeeApiService.getConfig();
     const currentConfig = configManager.getConfig();
-    
+
     configManager.updateConfig({
       ...currentConfig,
       api: {
@@ -413,7 +420,7 @@ ipcMain.handle('freee-api-get-employee-info', async () => {
         refreshTokenExpiresAt: apiConfig.refreshTokenExpiresAt,
       }
     });
-    
+
     throw error;
   }
 });

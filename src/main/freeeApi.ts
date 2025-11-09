@@ -270,29 +270,64 @@ export class FreeeApiService {
     this.refreshAttempts = 0;
   }
 
-  async getEmployeeInfo(): Promise<any> {
+  async getEmployeeInfo(retryCallback?: (attempt: number, maxAttempts: number) => void): Promise<any> {
     if (!this.config.companyId) {
       throw new Error('Company ID is required. Please get companies list first.');
     }
-    console.log('[FreeeAPI] GET /hr/api/v1/users/me');
-    const response = await this.axiosInstance.get('/hr/api/v1/users/me', {
-      params: { company_id: this.config.companyId },
-    });
 
-    // レスポンス構造を整形
-    const userData = response.data;
-    const currentCompany = userData.companies?.find((c: any) => c.id === this.config.companyId);
+    const maxAttempts = 18; // 最大18回リトライ（3分間）
+    const retryInterval = 10000; // 10秒間隔
 
-    return {
-      user: userData,
-      employee: currentCompany ? {
-        id: currentCompany.employee_id,
-        name: currentCompany.display_name,
-        display_name: currentCompany.display_name,
-        company_name: currentCompany.name,
-        company_id: currentCompany.id
-      } : null
-    };
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`[FreeeAPI] GET /hr/api/v1/users/me (attempt ${attempt}/${maxAttempts})`);
+
+        // リトライ状態をコールバックで通知
+        if (retryCallback && attempt > 1) {
+          retryCallback(attempt, maxAttempts);
+        }
+
+        const response = await this.axiosInstance.get('/hr/api/v1/users/me', {
+          params: { company_id: this.config.companyId },
+        });
+
+        // レスポンス構造を整形
+        const userData = response.data;
+        const currentCompany = userData.companies?.find((c: any) => c.id === this.config.companyId);
+
+        console.log(`[FreeeAPI] Successfully retrieved employee info on attempt ${attempt}`);
+
+        return {
+          user: userData,
+          employee: currentCompany ? {
+            id: currentCompany.employee_id,
+            name: currentCompany.display_name,
+            display_name: currentCompany.display_name,
+            company_name: currentCompany.name,
+            company_id: currentCompany.id
+          } : null
+        };
+      } catch (error) {
+        // 認証エラー（401）の場合は即座に失敗
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          console.error('[FreeeAPI] Authentication error, not retrying');
+          throw error;
+        }
+
+        // 最後のリトライでも失敗した場合
+        if (attempt === maxAttempts) {
+          console.error(`[FreeeAPI] Failed to get employee info after ${maxAttempts} attempts`);
+          throw new Error('ネットワーク接続に失敗しました。WiFi接続を確認してください。');
+        }
+
+        // 次のリトライまで待機
+        console.log(`[FreeeAPI] Error occurred, retrying in ${retryInterval/1000} seconds... (attempt ${attempt}/${maxAttempts})`);
+        await new Promise(resolve => setTimeout(resolve, retryInterval));
+      }
+    }
+
+    // このコードには到達しないはずだが、TypeScriptの型チェックのため
+    throw new Error('Unexpected error in getEmployeeInfo');
   }
 
   async timeClock(type: TimeClockType['type']): Promise<any> {

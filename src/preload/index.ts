@@ -24,6 +24,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateWorkRecord: (date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>, clockInAt?: string, clockOutAt?: string | null) =>
       ipcRenderer.invoke('freee-api-update-work-record', date, breakRecords, clockInAt, clockOutAt),
     deleteWorkRecord: (date: string) => ipcRenderer.invoke('freee-api-delete-work-record', date),
+    onEmployeeInfoRetry: (callback: (data: { attempt: number; maxAttempts: number }) => void) => {
+      ipcRenderer.on('employee-info-retry', (_, data) => callback(data));
+    },
+    removeEmployeeInfoRetryListener: () => {
+      ipcRenderer.removeAllListeners('employee-info-retry');
+    },
   },
   
   // PowerMonitor API

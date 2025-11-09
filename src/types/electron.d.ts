@@ -82,6 +82,8 @@ declare global {
         getTimeClocksFromWorkRecord: (date: string) => Promise<any[]>;
         updateWorkRecord: (date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>, clockInAt?: string, clockOutAt?: string | null) => Promise<any>;
         deleteWorkRecord: (date: string) => Promise<any>;
+        onEmployeeInfoRetry: (callback: (data: { attempt: number; maxAttempts: number }) => void) => void;
+        removeEmployeeInfoRetryListener: () => void;
       };
       powerMonitor: {
         start: () => Promise<boolean>;
