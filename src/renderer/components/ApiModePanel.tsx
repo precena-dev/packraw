@@ -18,6 +18,7 @@ interface TimeClockButtonState {
 }
 
 export const ApiModePanel: React.FC = () => {
+  const [isInitialized, setIsInitialized] = useState(false);
   const [isApiInitialized, setIsApiInitialized] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
@@ -45,6 +46,7 @@ export const ApiModePanel: React.FC = () => {
   const [breakScheduleConfig, setBreakScheduleConfig] = useState<any>(null);
   const [nextSchedule, setNextSchedule] = useState<{ type: string; time: Date } | null>(null);
   const [autoTimeClockConfig, setAutoTimeClockConfig] = useState<any>(null);
+  const [startupSettings, setStartupSettings] = useState<any>(null);
   const [datesWithRecords, setDatesWithRecords] = useState<string[]>([]);
 
   // 日本時間での今日の日付を取得するヘルパー関数
@@ -112,6 +114,8 @@ export const ApiModePanel: React.FC = () => {
       }
     } catch (err) {
       setError('APIの初期化に失敗しました');
+    } finally {
+      setIsInitialized(true);
     }
   };
 
@@ -274,6 +278,14 @@ export const ApiModePanel: React.FC = () => {
           console.error('Failed to initialize auto time clock:', error);
         }
 
+        // Startup設定の初期化
+        try {
+          const startupConfig = await window.electronAPI.startup.getSettings();
+          setStartupSettings(startupConfig);
+        } catch (error) {
+          console.error('Failed to initialize startup settings:', error);
+        }
+
       } catch (error) {
         console.error('Failed to check settings status:', error);
       }
@@ -419,6 +431,17 @@ export const ApiModePanel: React.FC = () => {
     } catch (error) {
       console.error('Failed to update auto time clock:', error);
       setError('自動出勤・退勤設定の更新に失敗しました');
+    }
+  };
+
+  // Startup の設定を更新
+  const updateStartup = async (enabled: boolean) => {
+    try {
+      const updatedSettings = await window.electronAPI.startup.setEnabled(enabled);
+      setStartupSettings(updatedSettings);
+    } catch (error) {
+      console.error('Failed to update startup settings:', error);
+      setError('自動起動設定の更新に失敗しました');
     }
   };
 
@@ -816,6 +839,19 @@ export const ApiModePanel: React.FC = () => {
     }
   };
 
+  // 初期化中は「ログイン中...」を表示
+  if (!isInitialized) {
+    return (
+      <div className="h-full flex items-center justify-center bg-blue-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">ログイン中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 初期化完了後、API設定がない場合のみエラー表示
   if (!isApiInitialized) {
     return (
       <div className="h-full flex items-center justify-center bg-blue-50">
@@ -893,8 +929,8 @@ export const ApiModePanel: React.FC = () => {
       ) : (
         // 過去日の場合
         <div className="control-panel">
-          {todayTimeClocks.length === 0 ? (
-            // 記録がない場合、勤怠登録ボタンを表示
+          {(todayTimeClocks.length === 0 || todayTimeClocks[0]?.source === 'time_clocks') ? (
+            // work_recordがない場合、勤怠登録ボタンを表示
             <button
               onClick={handleOpenCreateWorkRecord}
               disabled={loading}
@@ -907,7 +943,7 @@ export const ApiModePanel: React.FC = () => {
               勤怠の登録
             </button>
           ) : (
-            // 記録がある場合、削除ボタンを表示
+            // work_recordがある場合、削除ボタンを表示
             <button
               onClick={() => setIsDeleteWorkRecordModalOpen(true)}
               disabled={loading}
@@ -953,6 +989,8 @@ export const ApiModePanel: React.FC = () => {
         onUpdateBreakSchedule={updateBreakSchedule}
         autoTimeClockConfig={autoTimeClockConfig}
         onUpdateAutoTimeClock={updateAutoTimeClock}
+        startupSettings={startupSettings}
+        onUpdateStartup={updateStartup}
       />
 
       {/* 休憩時間編集モーダル */}

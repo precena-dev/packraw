@@ -23,6 +23,13 @@ interface AutoUpdateConfig {
   enabled: boolean;
 }
 
+interface StartupSettings {
+  openAtLogin: boolean;
+  savedOpenAtLogin: boolean;
+  platform: string;
+  supported: boolean;
+}
+
 interface AppConfig {
   app: {
     window: {
@@ -95,6 +102,11 @@ declare global {
       autoUpdate: {
         getConfig: () => Promise<AutoUpdateConfig>;
         setEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
+      };
+      startup: {
+        getSettings: () => Promise<StartupSettings>;
+        setEnabled: (enabled: boolean) => Promise<StartupSettings>;
+        checkPlatform: () => Promise<{ platform: string; supported: boolean }>;
       };
       app: {
         getVersion: () => Promise<string>;

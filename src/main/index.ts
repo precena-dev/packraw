@@ -191,7 +191,16 @@ function forceQuitApp() {
 app.whenReady().then(() => {
   // アプリ名を設定（Dockに表示される名前）
   app.setName('PackRaw');
-  
+
+  // 保存されている自動起動設定をOS側に反映
+  const startupConfig = configManager.getStartupConfig();
+  if (startupConfig) {
+    app.setLoginItemSettings({
+      openAtLogin: startupConfig.openAtLogin
+    });
+    console.log('Startup setting restored:', startupConfig.openAtLogin);
+  }
+
   // macOSのDockメニューをカスタマイズ
   if (process.platform === 'darwin') {
     const dockMenu = Menu.buildFromTemplate([
@@ -219,7 +228,7 @@ app.whenReady().then(() => {
     ]);
     app.dock?.setMenu(dockMenu);
   }
-  
+
   createWindow();
   createTray();
 
@@ -300,7 +309,7 @@ ipcMain.handle('set-api-config', (_event, apiConfig) => {
 
 
 // freee API関連のハンドラー
-ipcMain.handle('freee-api-init', () => {
+ipcMain.handle('freee-api-init', async() => {
   const config = configManager.getConfig();
   console.log('ConfigManager.getConfig():', JSON.stringify(config, null, 2));
   console.log('Config file path:', configManager.getConfigPath());
@@ -323,7 +332,7 @@ ipcMain.handle('freee-api-init', () => {
       powerMonitorService.setFreeeApiService(freeeApiService);
 
       // アプリ起動時の自動出勤チェック（非同期で実行、エラーは無視）
-      powerMonitorService.checkAutoClockInOnStartup().catch(error => {
+      await powerMonitorService.checkAutoClockInOnStartup().catch(error => {
         console.error('[Main] Auto clock-in on startup failed:', error);
       });
     }
@@ -332,7 +341,7 @@ ipcMain.handle('freee-api-init', () => {
     breakScheduler = new BreakScheduler(configManager, freeeApiService);
     const breakConfig = breakScheduler.getConfig();
     if (breakConfig.enabled) {
-      breakScheduler.start();
+      await breakScheduler.start();
     }
 
     return true;
@@ -409,144 +418,54 @@ ipcMain.handle('freee-api-get-employee-info', async () => {
   }
 });
 
-// トークン情報を設定ファイルに保存する共通処理
-function saveTokensToConfig() {
-  if (!freeeApiService) return;
-
-  const apiConfig = freeeApiService.getConfig();
-  const currentConfig = configManager.getConfig();
-
-  configManager.updateConfig({
-    ...currentConfig,
-    api: {
-      ...currentConfig.api!,
-      accessToken: apiConfig.accessToken,
-      refreshToken: apiConfig.refreshToken,
-      refreshTokenExpiresAt: apiConfig.refreshTokenExpiresAt,
-    }
-  });
-}
-
 ipcMain.handle('freee-api-time-clock', async (_event, type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  try {
-    const result = await freeeApiService.timeClock(type);
-    // API呼び出し後にトークンを保存（リフレッシュされた可能性があるため）
-    saveTokensToConfig();
-    return result;
-  } catch (error) {
-    // エラー時もトークンを保存（リフレッシュは成功している可能性があるため）
-    saveTokensToConfig();
-    throw error;
-  }
+  return await freeeApiService.timeClock(type);
 });
 
 ipcMain.handle('freee-api-get-today-work-record', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  try {
-    const result = await freeeApiService.getTodayWorkRecord();
-    saveTokensToConfig();
-    return result;
-  } catch (error) {
-    saveTokensToConfig();
-    throw error;
-  }
+  return await freeeApiService.getTodayWorkRecord();
 });
 
 ipcMain.handle('freee-api-get-work-record', async (_event, date: string) => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  try {
-    const result = await freeeApiService.getWorkRecord(date);
-    saveTokensToConfig();
-    return result;
-  } catch (error) {
-    saveTokensToConfig();
-    throw error;
-  }
+  return await freeeApiService.getWorkRecord(date);
 });
 
 ipcMain.handle('freee-api-get-companies', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  try {
-    const result = await freeeApiService.getCompanies();
-    saveTokensToConfig();
-    return result;
-  } catch (error) {
-    saveTokensToConfig();
-    throw error;
-  }
+  return await freeeApiService.getCompanies();
 });
 
 ipcMain.handle('freee-api-get-time-clock-button-states', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  try {
-    const result = await freeeApiService.getTimeClockButtonStates();
-    saveTokensToConfig();
-    return result;
-  } catch (error) {
-    saveTokensToConfig();
-    throw error;
-  }
+  return await freeeApiService.getTimeClockButtonStates();
 });
 
 ipcMain.handle('freee-api-get-last-time-clock-type', async () => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  try {
-    const result = await freeeApiService.getLastTimeClockType();
-    saveTokensToConfig();
-    return result;
-  } catch (error) {
-    saveTokensToConfig();
-    throw error;
-  }
+  return await freeeApiService.getLastTimeClockType();
 });
 
 ipcMain.handle('freee-api-get-time-clocks', async (_event, fromDate?: string, toDate?: string) => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  try {
-    const result = await freeeApiService.getTimeClocks(fromDate, toDate);
-    saveTokensToConfig();
-    return result;
-  } catch (error) {
-    saveTokensToConfig();
-    throw error;
-  }
+  return await freeeApiService.getTimeClocks(fromDate, toDate);
 });
 
 ipcMain.handle('freee-api-get-time-clocks-from-work-record', async (_event, date: string) => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  try {
-    const result = await freeeApiService.getTimeClocksFromWorkRecord(date);
-    saveTokensToConfig();
-    return result;
-  } catch (error) {
-    saveTokensToConfig();
-    throw error;
-  }
+  return await freeeApiService.getTimeClocksFromWorkRecord(date);
 });
 
 ipcMain.handle('freee-api-update-work-record', async (_event, date: string, breakRecords: Array<{ clock_in_at: string; clock_out_at: string }>, clockInAt?: string, clockOutAt?: string | null) => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  try {
-    const result = await freeeApiService.updateWorkRecord(date, breakRecords, clockInAt, clockOutAt);
-    saveTokensToConfig();
-    return result;
-  } catch (error) {
-    saveTokensToConfig();
-    throw error;
-  }
+  return await freeeApiService.updateWorkRecord(date, breakRecords, clockInAt, clockOutAt);
 });
 
 ipcMain.handle('freee-api-delete-work-record', async (_event, date: string) => {
   if (!freeeApiService) throw new Error('API service not initialized');
-  try {
-    const result = await freeeApiService.deleteWorkRecord(date);
-    saveTokensToConfig();
-    return result;
-  } catch (error) {
-    saveTokensToConfig();
-    throw error;
-  }
+  return await freeeApiService.deleteWorkRecord(date);
 });
 
 // BreakScheduler関連のハンドラー
@@ -594,4 +513,41 @@ ipcMain.handle('app-get-version', () => {
 ipcMain.handle('check-for-updates', () => {
   if (!updaterService) throw new Error('Updater service not initialized');
   updaterService.checkForUpdates();
+});
+
+// 自動起動設定関連のハンドラー
+ipcMain.handle('startup-get-settings', () => {
+  const loginSettings = app.getLoginItemSettings();
+  const savedConfig = configManager.getStartupConfig();
+  return {
+    openAtLogin: loginSettings.openAtLogin,
+    savedOpenAtLogin: savedConfig?.openAtLogin ?? false,
+    platform: process.platform,
+    supported: process.platform === 'darwin' || process.platform === 'win32'
+  };
+});
+
+ipcMain.handle('startup-set-enabled', (_event, enabled: boolean) => {
+  // OS側のスタートアップに登録/解除
+  app.setLoginItemSettings({
+    openAtLogin: enabled
+  });
+
+  // config.jsonにも保存（設定の永続化）
+  configManager.setStartupEnabled(enabled);
+
+  // 変更後の状態を返す
+  const loginSettings = app.getLoginItemSettings();
+  return {
+    openAtLogin: loginSettings.openAtLogin,
+    platform: process.platform,
+    supported: process.platform === 'darwin' || process.platform === 'win32'
+  };
+});
+
+ipcMain.handle('startup-check-platform', () => {
+  return {
+    platform: process.platform,
+    supported: process.platform === 'darwin' || process.platform === 'win32'
+  };
 });
