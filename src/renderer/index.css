@@ -1202,3 +1202,42 @@ html, body, #root {
   margin: 0;
   word-break: break-word;
 }
+
+/* Settings Tab Styles */
+.settings-tab-header {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 0 20px;
+  gap: 8px;
+}
+
+.settings-tab-button {
+  flex: 1;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.settings-tab-button:hover {
+  color: #374151;
+  background: #f3f4f6;
+}
+
+.settings-tab-button.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  background: white;
+}
+
+.settings-tab-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}

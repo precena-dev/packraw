@@ -53,6 +53,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [configPath, setConfigPath] = useState<string>('');
   const [appVersion, setAppVersion] = useState<string>('');
 
+  // タブ管理
+  type TabType = 'work' | 'break' | 'other';
+  const [activeTab, setActiveTab] = useState<TabType>('work');
+
   // プラットフォーム判定（UserAgentから）
   const isMacOS = navigator.userAgent.includes('Mac');
 
@@ -313,347 +317,391 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <h2 className="modal-title">設定</h2>
         </div>
 
+        {/* タブヘッダー */}
+        <div className="settings-tab-header">
+          <button
+            className={`settings-tab-button ${activeTab === 'work' ? 'active' : ''}`}
+            onClick={() => setActiveTab('work')}
+          >
+            出退勤
+          </button>
+          <button
+            className={`settings-tab-button ${activeTab === 'break' ? 'active' : ''}`}
+            onClick={() => setActiveTab('break')}
+          >
+            休憩
+          </button>
+          <button
+            className={`settings-tab-button ${activeTab === 'other' ? 'active' : ''}`}
+            onClick={() => setActiveTab('other')}
+          >
+            その他
+          </button>
+        </div>
+
         {/* コンテンツ */}
         <div className="modal-body">
 
-          {/* 休憩打刻予約機能 */}
-          <div className="setting-section">
-            <h3 className="setting-section-title">休憩打刻予約設定</h3>
-            <div className="setting-item">
-              <div className="setting-item-content">
-                <div className="setting-item-label">
-                  <span className="setting-item-name">自動休憩打刻</span>
-                  <p className="setting-item-description">
-                    指定した時刻に自動で休憩開始・終了を打刻します
+          {/* 出退勤設定タブ */}
+          {activeTab === 'work' && (
+            <>
+              {/* セクション1: 自動出退勤機能 */}
+              <div className="setting-section">
+                <h3 className="setting-section-title">自動出退勤機能</h3>
+
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <div className="setting-item-label">
+                      <span className="setting-item-name">アプリ起動時<br/>自動出勤</span>
+                    </div>
+                    <div className="setting-item-control">
+                      <button
+                        onClick={handleToggleAutoClockInOnStartup}
+                        className={`setting-toggle ${autoClockInOnStartup ? 'enabled' : 'disabled'}`}
+                      >
+                        <div className="setting-toggle-track">
+                          <div className="setting-toggle-thumb"></div>
+                        </div>
+                        <span className="setting-toggle-label">
+                          {autoClockInOnStartup ? '有効' : '無効'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="setting-item-content">
+                    <div className="setting-item-label">
+                      <span className="setting-item-name">PCシャットダウン時<br/>自動退勤</span>
+                    </div>
+                    <div className="setting-item-control">
+                      <button
+                        onClick={handleToggleAutoClockOutOnShutdown}
+                        className={`setting-toggle ${autoClockOutOnShutdown ? 'enabled' : 'disabled'}`}
+                      >
+                        <div className="setting-toggle-track">
+                          <div className="setting-toggle-thumb"></div>
+                        </div>
+                        <span className="setting-toggle-label">
+                          {autoClockOutOnShutdown ? '有効' : '無効'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* セクション2: 土日制御 */}
+              <div className="setting-section">
+                <h3 className="setting-section-title">土日制御</h3>
+
+                {/* 土日打刻無効化 */}
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <div className="setting-item-label">
+                      <span className="setting-item-name">土日の打刻を<br/>無効化</span>
+                    </div>
+                    <div className="setting-item-control">
+                      <button
+                        onClick={handleToggleDisableWeekends}
+                        className={`setting-toggle ${disableWeekends ? 'enabled' : 'disabled'}`}
+                      >
+                        <div className="setting-toggle-track">
+                          <div className="setting-toggle-thumb"></div>
+                        </div>
+                        <span className="setting-toggle-label">
+                          {disableWeekends ? '有効' : '無効'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* セクション3: 時間帯別自動退勤 */}
+              <div className="setting-section">
+                <h3 className="setting-section-title">時間帯別自動退勤</h3>
+
+                {/* 時間帯別スリープ自動退勤 */}
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <div className="setting-item-label">
+                      <span className="setting-item-name">指定時刻以降の<br/>スリープ自動退勤</span>
+                      <p className="setting-item-description">
+                        指定時刻以降のスリープ/サスペンド時のみ自動退勤します
+                      </p>
+                    </div>
+                    <div className="setting-item-control">
+                      <button
+                        onClick={handleToggleAutoClockOutAfterTime}
+                        className={`setting-toggle ${autoClockOutAfterTimeEnabled ? 'enabled' : 'disabled'}`}
+                      >
+                        <div className="setting-toggle-track">
+                          <div className="setting-toggle-thumb"></div>
+                        </div>
+                        <span className="setting-toggle-label">
+                          {autoClockOutAfterTimeEnabled ? '有効' : '無効'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 時刻設定を同じsetting-item-content内に配置 */}
+                  <div className="setting-item-content" style={{ marginTop: '12px' }}>
+                    <div className="setting-item-label">
+                      <span className="setting-item-name">自動退勤開始時刻</span>
+                    </div>
+                    <div className="setting-item-control">
+                      <input
+                        type="time"
+                        value={autoClockOutAfterTime}
+                        onChange={(e) => setAutoClockOutAfterTime(e.target.value)}
+                        onBlur={handleUpdateAutoClockOutTime}
+                        disabled={!autoClockOutAfterTimeEnabled}
+                        className="setting-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* セクション4: スタートアップ */}
+              <div className="setting-section">
+                <h3 className="setting-section-title">スタートアップ</h3>
+
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <div className="setting-item-label">
+                      <span className="setting-item-name">ログイン時に<br/>自動起動</span>
+                      <p className="setting-item-description">
+                        {startupSupported
+                          ? 'ログイン時にPackRawを自動的に起動します'
+                          : 'この機能はmacOS/Windowsのみ対応しています'}
+                      </p>
+                    </div>
+                    <div className="setting-item-control">
+                      <button
+                        onClick={handleToggleStartup}
+                        disabled={!startupSupported}
+                        className={`setting-toggle ${openAtLogin ? 'enabled' : 'disabled'}`}
+                        style={{ opacity: !startupSupported ? 0.5 : 1, cursor: !startupSupported ? 'not-allowed' : 'pointer' }}
+                      >
+                        <div className="setting-toggle-track">
+                          <div className="setting-toggle-thumb"></div>
+                        </div>
+                        <span className="setting-toggle-label">
+                          {openAtLogin ? '有効' : '無効'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {startupSupported && (
+                  <div className="setting-detail">
+                    <p className="setting-detail-note">
+                      <strong>macOS:</strong> システム環境設定 &gt; ユーザとグループ &gt; ログイン項目<br/>
+                      <strong>Windows:</strong> タスクマネージャー &gt; スタートアップ
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* 休憩設定タブ */}
+          {activeTab === 'break' && (
+            <>
+              {/* セクション1: 休憩打刻予約 */}
+              <div className="setting-section">
+                <h3 className="setting-section-title">休憩打刻予約</h3>
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <div className="setting-item-label">
+                      <span className="setting-item-name">自動休憩打刻</span>
+                      <p className="setting-item-description">
+                        指定した時刻に自動で休憩開始・終了を打刻します
+                      </p>
+                    </div>
+                    <div className="setting-item-control">
+                      <button
+                        onClick={handleToggleBreakSchedule}
+                        className={`setting-toggle ${breakEnabled ? 'enabled' : 'disabled'}`}
+                      >
+                        <div className="setting-toggle-track">
+                          <div className="setting-toggle-thumb"></div>
+                        </div>
+                        <span className="setting-toggle-label">
+                          {breakEnabled ? '有効' : '無効'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 時刻設定 */}
+                <div className="setting-detail">
+                  <h4 className="setting-detail-title">時刻設定</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ minWidth: '100px', fontSize: '13px', color: !breakEnabled ? '#999' : 'inherit' }}>休憩開始:</label>
+                      <input
+                        type="time"
+                        value={breakStartTime}
+                        onChange={(e) => setBreakStartTime(e.target.value)}
+                        onBlur={(e) => handleBreakStartTimeChange(e.target.value)}
+                        disabled={!breakEnabled}
+                        style={{
+                          padding: '6px 10px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '13px',
+                          opacity: !breakEnabled ? 0.5 : 1,
+                          cursor: !breakEnabled ? 'not-allowed' : 'text'
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ minWidth: '100px', fontSize: '13px', color: !breakEnabled ? '#999' : 'inherit' }}>休憩終了:</label>
+                      <input
+                        type="time"
+                        value={breakEndTime}
+                        onChange={(e) => setBreakEndTime(e.target.value)}
+                        onBlur={(e) => handleBreakEndTimeChange(e.target.value)}
+                        disabled={!breakEnabled}
+                        style={{
+                          padding: '6px 10px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '13px',
+                          opacity: !breakEnabled ? 0.5 : 1,
+                          cursor: !breakEnabled ? 'not-allowed' : 'text'
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <label style={{ minWidth: '100px', fontSize: '13px', color: !breakEnabled ? '#999' : 'inherit' }}>ランダム誤差:</label>
+                      <input
+                        type="number"
+                        value={randomOffset}
+                        onChange={(e) => setRandomOffset(Number(e.target.value))}
+                        onBlur={(e) => handleRandomOffsetChange(Number(e.target.value))}
+                        disabled={!breakEnabled}
+                        min="0"
+                        max="30"
+                        style={{
+                          padding: '6px 10px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '13px',
+                          width: '80px',
+                          opacity: !breakEnabled ? 0.5 : 1,
+                          cursor: !breakEnabled ? 'not-allowed' : 'text'
+                        }}
+                      />
+                      <span style={{ fontSize: '13px', color: !breakEnabled ? '#999' : '#666' }}>±分</span>
+                    </div>
+                  </div>
+                  <p className="setting-detail-note" style={{ marginTop: '12px', fontSize: '12px', color: !breakEnabled ? '#999' : '#666' }}>
+                    ランダム誤差により、設定時刻の前後数分のランダムなタイミングで打刻されます
                   </p>
                 </div>
-                <div className="setting-item-control">
-                  <button
-                    onClick={handleToggleBreakSchedule}
-                    className={`setting-toggle ${breakEnabled ? 'enabled' : 'disabled'}`}
-                  >
-                    <div className="setting-toggle-track">
-                      <div className="setting-toggle-thumb"></div>
+              </div>
+
+              {/* セクション2: PC連動自動休憩モード */}
+              <div className="setting-section">
+                <h3 className="setting-section-title">PC連動自動休憩モード</h3>
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <div className="setting-item-label">
+                      <span className="setting-item-name">自動休憩モード</span>
                     </div>
-                    <span className="setting-toggle-label">
-                      {breakEnabled ? '有効' : '無効'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 時刻設定 */}
-            <div className="setting-detail">
-              <h4 className="setting-detail-title">時刻設定</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <label style={{ minWidth: '100px', fontSize: '13px', color: !breakEnabled ? '#999' : 'inherit' }}>休憩開始:</label>
-                  <input
-                    type="time"
-                    value={breakStartTime}
-                    onChange={(e) => setBreakStartTime(e.target.value)}
-                    onBlur={(e) => handleBreakStartTimeChange(e.target.value)}
-                    disabled={!breakEnabled}
-                    style={{
-                      padding: '6px 10px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '13px',
-                      opacity: !breakEnabled ? 0.5 : 1,
-                      cursor: !breakEnabled ? 'not-allowed' : 'text'
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <label style={{ minWidth: '100px', fontSize: '13px', color: !breakEnabled ? '#999' : 'inherit' }}>休憩終了:</label>
-                  <input
-                    type="time"
-                    value={breakEndTime}
-                    onChange={(e) => setBreakEndTime(e.target.value)}
-                    onBlur={(e) => handleBreakEndTimeChange(e.target.value)}
-                    disabled={!breakEnabled}
-                    style={{
-                      padding: '6px 10px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '13px',
-                      opacity: !breakEnabled ? 0.5 : 1,
-                      cursor: !breakEnabled ? 'not-allowed' : 'text'
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <label style={{ minWidth: '100px', fontSize: '13px', color: !breakEnabled ? '#999' : 'inherit' }}>ランダム誤差:</label>
-                  <input
-                    type="number"
-                    value={randomOffset}
-                    onChange={(e) => setRandomOffset(Number(e.target.value))}
-                    onBlur={(e) => handleRandomOffsetChange(Number(e.target.value))}
-                    disabled={!breakEnabled}
-                    min="0"
-                    max="30"
-                    style={{
-                      padding: '6px 10px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      fontSize: '13px',
-                      width: '80px',
-                      opacity: !breakEnabled ? 0.5 : 1,
-                      cursor: !breakEnabled ? 'not-allowed' : 'text'
-                    }}
-                  />
-                  <span style={{ fontSize: '13px', color: !breakEnabled ? '#999' : '#666' }}>±分</span>
-                </div>
-              </div>
-              <p className="setting-detail-note" style={{ marginTop: '12px', fontSize: '12px', color: !breakEnabled ? '#999' : '#666' }}>
-                ランダム誤差により、設定時刻の前後数分のランダムなタイミングで打刻されます
-              </p>
-            </div>
-          </div>
-
-          {/* 起動設定 */}
-          <div className="setting-section">
-            <h3 className="setting-section-title">起動設定</h3>
-
-            <div className="setting-item">
-              <div className="setting-item-content">
-                <div className="setting-item-label">
-                  <span className="setting-item-name">ログイン時に<br/>自動起動</span>
-                  <p className="setting-item-description">
-                    {startupSupported
-                      ? 'ログイン時にPackRawを自動的に起動します'
-                      : 'この機能はmacOS/Windowsのみ対応しています'}
-                  </p>
-                </div>
-                <div className="setting-item-control">
-                  <button
-                    onClick={handleToggleStartup}
-                    disabled={!startupSupported}
-                    className={`setting-toggle ${openAtLogin ? 'enabled' : 'disabled'}`}
-                    style={{ opacity: !startupSupported ? 0.5 : 1, cursor: !startupSupported ? 'not-allowed' : 'pointer' }}
-                  >
-                    <div className="setting-toggle-track">
-                      <div className="setting-toggle-thumb"></div>
+                    <div className="setting-item-control">
+                      <button
+                        onClick={handleTogglePowerMonitor}
+                        disabled={isLoading}
+                        className={`setting-toggle ${isPowerMonitorEnabled ? 'enabled' : 'disabled'}`}
+                      >
+                        <div className="setting-toggle-track">
+                          <div className="setting-toggle-thumb"></div>
+                        </div>
+                        <span className="setting-toggle-label">
+                          {isPowerMonitorEnabled ? '有効' : '無効'}
+                        </span>
+                      </button>
                     </div>
-                    <span className="setting-toggle-label">
-                      {openAtLogin ? '有効' : '無効'}
-                    </span>
-                  </button>
+                  </div>
+                </div>
+
+                {/* 機能詳細 */}
+                <div className="setting-detail">
+                  <h4 className="setting-detail-title">自動休憩のトリガー</h4>
+                  <ul className="setting-detail-list">
+                    <li>
+                      <strong>休憩開始:</strong> 画面ロック/システムサスペンド時
+                    </li>
+                    <li>
+                      <strong>休憩終了:</strong> 画面アンロック/システムレジューム時
+                    </li>
+                  </ul>
                 </div>
               </div>
-            </div>
+            </>
+          )}
 
-            {startupSupported && (
-              <div className="setting-detail">
-                <p className="setting-detail-note">
-                  <strong>macOS:</strong> システム環境設定 &gt; ユーザとグループ &gt; ログイン項目<br/>
-                  <strong>Windows:</strong> タスクマネージャー &gt; スタートアップ
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* 自動出勤・退勤機能 */}
-          <div className="setting-section">
-            <h3 className="setting-section-title">PC連動自動/出退勤打刻設定</h3>
-
-            {/* 土日打刻無効化 */}
-            <div className="setting-item">
-              <div className="setting-item-content">
-                <div className="setting-item-label">
-                  <span className="setting-item-name">土日の打刻を<br/>無効化</span>
-                </div>
-                <div className="setting-item-control">
-                  <button
-                    onClick={handleToggleDisableWeekends}
-                    className={`setting-toggle ${disableWeekends ? 'enabled' : 'disabled'}`}
-                  >
-                    <div className="setting-toggle-track">
-                      <div className="setting-toggle-thumb"></div>
+          {/* その他タブ */}
+          {activeTab === 'other' && (
+            <>
+              {/* セクション1: 自動更新 */}
+              <div className="setting-section">
+                <h3 className="setting-section-title">自動更新</h3>
+                <div className="setting-item">
+                  <div className="setting-item-content">
+                    <div className="setting-item-label">
+                      <span className="setting-item-name">自動更新</span>
+                      <p className="setting-item-description">
+                        新しいバージョンが利用可能になったときに通知します
+                        {isMacOS && '（macOSは手動更新）'}
+                      </p>
                     </div>
-                    <span className="setting-toggle-label">
-                      {disableWeekends ? '有効' : '無効'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* アプリ起動時停止時の自動打刻 */}
-            <div className="setting-item">
-              <div className="setting-item-content">
-                <div className="setting-item-label">
-                  <span className="setting-item-name">アプリ起動時<br/>自動出勤</span>
-                </div>
-                <div className="setting-item-control">
-                  <button
-                    onClick={handleToggleAutoClockInOnStartup}
-                    className={`setting-toggle ${autoClockInOnStartup ? 'enabled' : 'disabled'}`}
-                  >
-                    <div className="setting-toggle-track">
-                      <div className="setting-toggle-thumb"></div>
+                    <div className="setting-item-control">
+                      <button
+                        onClick={handleToggleAutoUpdate}
+                        className={`setting-toggle ${autoUpdateEnabled ? 'enabled' : 'disabled'}`}
+                        disabled={isLoading}
+                      >
+                        <div className="setting-toggle-track">
+                          <div className="setting-toggle-thumb"></div>
+                        </div>
+                        <span className="setting-toggle-label">
+                          {autoUpdateEnabled ? '有効' : '無効'}
+                        </span>
+                      </button>
                     </div>
-                    <span className="setting-toggle-label">
-                      {autoClockInOnStartup ? '有効' : '無効'}
-                    </span>
-                  </button>
+                  </div>
                 </div>
               </div>
-              <div className="setting-item-content">
-                <div className="setting-item-label">
-                  <span className="setting-item-name">PCシャットダウン時<br/>自動退勤</span>
-                </div>
-                <div className="setting-item-control">
-                  <button
-                    onClick={handleToggleAutoClockOutOnShutdown}
-                    className={`setting-toggle ${autoClockOutOnShutdown ? 'enabled' : 'disabled'}`}
-                  >
-                    <div className="setting-toggle-track">
-                      <div className="setting-toggle-thumb"></div>
-                    </div>
-                    <span className="setting-toggle-label">
-                      {autoClockOutOnShutdown ? '有効' : '無効'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* 時間帯別スリープ自動退勤機能 */}
-          <div className="setting-section">
-            <h3 className="setting-section-title">時間帯別スリープ自動退勤機能</h3>
-
-            <div className="setting-item">
-              <div className="setting-item-content">
-                <div className="setting-item-label">
-                  <span className="setting-item-name">指定時刻以降の<br/>スリープ自動退勤</span>
-                </div>
-                <div className="setting-item-control">
-                  <button
-                    onClick={handleToggleAutoClockOutAfterTime}
-                    className={`setting-toggle ${autoClockOutAfterTimeEnabled ? 'enabled' : 'disabled'}`}
-                  >
-                    <div className="setting-toggle-track">
-                      <div className="setting-toggle-thumb"></div>
-                    </div>
-                    <span className="setting-toggle-label">
-                      {autoClockOutAfterTimeEnabled ? '有効' : '無効'}
-                    </span>
-                  </button>
-                </div>
+              {/* セクション2: アプリ情報 */}
+              <div className="setting-section">
+                <h3 className="setting-section-title">アプリ情報</h3>
+                {appVersion && (
+                  <div className="setting-detail">
+                    <h4 className="setting-detail-title">バージョン</h4>
+                    <p className="setting-detail-note">
+                      {appVersion}
+                    </p>
+                  </div>
+                )}
+                {configPath && (
+                  <div className="setting-detail">
+                    <h4 className="setting-detail-title">設定ファイルパス</h4>
+                    <p className="setting-detail-note" style={{ wordBreak: 'break-all', fontSize: '11px' }}>
+                      {configPath}
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-
-            {/* 時刻設定 */}
-            <div className="setting-item">
-              <div className="setting-item-content">
-                <div className="setting-item-label">
-                  <span className="setting-item-name">自動退勤開始時刻</span>
-                </div>
-                <div className="setting-item-control">
-                  <input
-                    type="time"
-                    value={autoClockOutAfterTime}
-                    onChange={(e) => setAutoClockOutAfterTime(e.target.value)}
-                    onBlur={handleUpdateAutoClockOutTime}
-                    disabled={!autoClockOutAfterTimeEnabled}
-                    className="setting-input"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="setting-section">
-            <h3 className="setting-section-title">PC連動自動/休憩設定</h3>
-            <div className="setting-item">
-              <div className="setting-item-content">
-                <div className="setting-item-label">
-                  <span className="setting-item-name">自動休憩モード</span>
-                </div>
-                <div className="setting-item-control">
-                  <button
-                    onClick={handleTogglePowerMonitor}
-                    disabled={isLoading}
-                    className={`setting-toggle ${isPowerMonitorEnabled ? 'enabled' : 'disabled'}`}
-                  >
-                    <div className="setting-toggle-track">
-                      <div className="setting-toggle-thumb"></div>
-                    </div>
-                    <span className="setting-toggle-label">
-                      {isPowerMonitorEnabled ? '有効' : '無効'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 機能詳細 */}
-            <div className="setting-detail">
-              <h4 className="setting-detail-title">自動休憩のトリガー</h4>
-              <ul className="setting-detail-list">
-                <li>
-                  <strong>休憩開始:</strong> 画面ロック/システムサスペンド時
-                </li>
-                <li>
-                  <strong>休憩終了:</strong> 画面アンロック/システムレジューム時
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* 自動更新設定 */}
-          <div className="setting-section">
-            <h3 className="setting-section-title">自動更新設定</h3>
-            <div className="setting-item">
-              <div className="setting-item-content">
-                <div className="setting-item-label">
-                  <span className="setting-item-name">自動更新</span>
-                  <span className="setting-item-description">
-                    新しいバージョンが利用可能になったときに通知します
-                    {isMacOS && '（macOSは手動更新）'}
-                  </span>
-                </div>
-                <div className="setting-item-control">
-                  <button
-                    onClick={handleToggleAutoUpdate}
-                    className={`setting-toggle ${autoUpdateEnabled ? 'enabled' : 'disabled'}`}
-                    disabled={isLoading}
-                  >
-                    <div className="setting-toggle-track">
-                      <div className="setting-toggle-thumb"></div>
-                    </div>
-                    <span className="setting-toggle-label">
-                      {autoUpdateEnabled ? '有効' : '無効'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* アプリ情報 */}
-          <div className="setting-section">
-            <h3 className="setting-section-title">アプリ情報</h3>
-            {appVersion && (
-              <div className="setting-detail">
-                <h4 className="setting-detail-title">バージョン</h4>
-                <p className="setting-detail-note">
-                  {appVersion}
-                </p>
-              </div>
-            )}
-            {configPath && (
-              <div className="setting-detail">
-                <h4 className="setting-detail-title">設定ファイルパス</h4>
-                <p className="setting-detail-note" style={{ wordBreak: 'break-all', fontSize: '11px' }}>
-                  {configPath}
-                </p>
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
         {/* フッター */}
