@@ -70,6 +70,7 @@ declare global {
       onReloadWebview: (callback: () => void) => void;
       freeeApi: {
         init: () => Promise<boolean>;
+        postInit: () => Promise<{ success: boolean }>;
         authorize: () => Promise<string>;
         getEmployeeInfo: () => Promise<any>;
         timeClock: (type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') => Promise<any>;

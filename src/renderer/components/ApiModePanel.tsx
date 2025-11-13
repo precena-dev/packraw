@@ -93,7 +93,7 @@ export const ApiModePanel: React.FC = () => {
         // 既存のトークンで従業員情報を取得してみる
         try {
           const info = await window.electronAPI.freeeApi.getEmployeeInfo();
-          
+
           // 従業員IDが取得できた場合、設定ファイルに保存
           if (info.employee?.id) {
             const currentConfig = await window.electronAPI.getConfig();
@@ -107,10 +107,19 @@ export const ApiModePanel: React.FC = () => {
               });
             }
           }
-          
+
           setEmployeeInfo(info.employee);
           setIsAuthorized(true);
-          
+
+          // getEmployeeInfo成功後、初期化後処理を実行
+          // （PowerMonitor設定 + 自動出勤チェック）
+          try {
+            await window.electronAPI.freeeApi.postInit();
+          } catch (postInitError) {
+            console.error('Post-init failed:', postInitError);
+            // 自動出勤失敗してもアプリは使える
+          }
+
           // 今日の勤務記録を取得
           try {
             const todayRecord = await window.electronAPI.freeeApi.getTodayWorkRecord();

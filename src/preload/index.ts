@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // freee API
   freeeApi: {
     init: () => ipcRenderer.invoke('freee-api-init'),
+    postInit: () => ipcRenderer.invoke('freee-api-post-init'),
     authorize: () => ipcRenderer.invoke('freee-api-authorize'),
     getEmployeeInfo: () => ipcRenderer.invoke('freee-api-get-employee-info'),
     timeClock: (type: 'clock_in' | 'clock_out' | 'break_begin' | 'break_end') =>

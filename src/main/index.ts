@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog } from 'electron';
 import path from 'path';
 import { ConfigManager } from './config';
 import { FreeeApiService } from './freeeApi';
@@ -71,12 +71,73 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // ウィンドウを閉じた時はトレイに隠す（macOSの慣例）
-  // ただし、明示的に終了する場合（Cmd+Q、メニューからQuit、Dockから終了）は終了させる
-  mainWindow.on('close', (event) => {
+  // ウィンドウを閉じた時の処理
+  mainWindow.on('close', async (event) => {
+    // macOS: トレイに隠す（明示的に終了する場合を除く）
     if (process.platform === 'darwin' && !isQuitting) {
       event.preventDefault();
       mainWindow?.hide();
+      return;
+    }
+
+    // Windows: ユーザーに退勤するか確認（PCシャットダウン時を除く）
+    if (process.platform === 'win32' && !isQuitting) {
+      event.preventDefault();
+
+      // 自動退勤設定を確認
+      const config = configManager.getConfig();
+      const autoClockOutEnabled = (config.app as any)?.autoTimeClock?.autoClockOutOnShutdown;
+
+      if (!autoClockOutEnabled || !freeeApiService) {
+        // 自動退勤が無効、またはAPIサービスが未初期化の場合は通常終了
+        isQuitting = true;
+        app.quit();
+        return;
+      }
+
+      // 最後の打刻タイプを確認
+      try {
+        const lastType = await freeeApiService.getLastTimeClockType();
+
+        // 既に退勤済みの場合は確認なしで終了
+        if (lastType === 'clock_out' || lastType === null) {
+          isQuitting = true;
+          app.quit();
+          return;
+        }
+
+        // ダイアログで選択させる
+        const { response } = await dialog.showMessageBox({
+          type: 'question',
+          buttons: ['退勤してアプリを停止', '退勤せずに停止', 'キャンセル'],
+          defaultId: 0,
+          cancelId: 2,
+          message: 'アプリを終了します',
+          detail: '退勤しますか？'
+        });
+
+        if (response === 0) {
+          // 退勤してから終了
+          // 休憩中の場合は先に休憩終了
+          const isOnBreak = lastType === 'break_begin';
+          if (isOnBreak) {
+            await freeeApiService.timeClock('break_end');
+          }
+          await freeeApiService.timeClock('clock_out');
+          isQuitting = true;
+          app.quit();
+        } else if (response === 1) {
+          // そのまま終了
+          isQuitting = true;
+          app.quit();
+        }
+        // response === 2 (キャンセル)の場合は何もしない
+      } catch (error) {
+        console.error('[Main] Error in close handler:', error);
+        // エラー時は通常終了
+        isQuitting = true;
+        app.quit();
+      }
     }
   });
 
@@ -260,7 +321,19 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', async (event) => {
+  // Windows用: PCシャットダウン時の処理
+  // (ウィンドウのcloseイベント経由でない場合 = PCシャットダウン)
+  if (process.platform === 'win32' && !isQuitting && powerMonitorService) {
+    event.preventDefault();
+    console.log('[Main] Before-quit event detected (Windows PC shutdown)');
+
+    // PowerMonitorServiceのhandleShutdownを呼び出し
+    await powerMonitorService.handleShutdown(event);
+    return;
+  }
+
+  // 通常の終了処理
   // アプリが終了することを示すフラグを立てる
   isQuitting = true;
 
@@ -313,7 +386,7 @@ ipcMain.handle('freee-api-init', async() => {
   const config = configManager.getConfig();
   console.log('ConfigManager.getConfig():', JSON.stringify(config, null, 2));
   console.log('Config file path:', configManager.getConfigPath());
-  
+
   if (config.api) {
     console.log('API config found, initializing FreeeApiService...');
     freeeApiService = new FreeeApiService({
@@ -326,16 +399,6 @@ ipcMain.handle('freee-api-init', async() => {
       companyId: config.api.companyId,
       employeeId: config.api.employeeId,
     }, configManager);
-    
-    // PowerMonitorService に FreeeApiService を設定
-    if (powerMonitorService) {
-      powerMonitorService.setFreeeApiService(freeeApiService);
-
-      // アプリ起動時の自動出勤チェック（非同期で実行、エラーは無視）
-      await powerMonitorService.checkAutoClockInOnStartup().catch(error => {
-        console.error('[Main] Auto clock-in on startup failed:', error);
-      });
-    }
 
     // BreakScheduler を初期化
     breakScheduler = new BreakScheduler(configManager, freeeApiService);
@@ -349,6 +412,21 @@ ipcMain.handle('freee-api-init', async() => {
     console.log('No API config found in config');
   }
   return false;
+});
+
+// freee API初期化後の処理（getEmployeeInfo成功後に呼ばれる）
+ipcMain.handle('freee-api-post-init', async() => {
+  if (!powerMonitorService || !freeeApiService) {
+    throw new Error('Services not initialized');
+  }
+
+  // PowerMonitorService に FreeeApiService を設定
+  powerMonitorService.setFreeeApiService(freeeApiService);
+
+  // アプリ起動時の自動出勤チェック
+  await powerMonitorService.checkAutoClockInOnStartup();
+
+  return { success: true };
 });
 
 ipcMain.handle('freee-api-authorize', async () => {

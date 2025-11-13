@@ -110,48 +110,55 @@ export class PowerMonitorService {
    * シャットダウン検知のセットアップ
    */
   private setupShutdownHandler() {
-    // PCシャットダウン時の処理
+    // macOS/Linux用: PCシャットダウン時の処理
     powerMonitor.on('shutdown' as any, async (event: any) => {
-      log.info('[PowerMonitor] Shutdown event detected');
-
-      // 通常の自動退勤設定をチェック（時間帯別は対象外）
-      const config = this.configManager.getConfig();
-      const autoClockOutEnabled = (config.app as any)?.autoTimeClock?.autoClockOutOnShutdown;
-
-      if (!autoClockOutEnabled) {
-        log.info('[PowerMonitor] Auto clock-out on shutdown is disabled');
-        return;
-      }
-
-      if (!this.freeeApiService) {
-        log.warn('[PowerMonitor] FreeeApiService not available');
-        return;
-      }
-
-      // シャットダウンを一時的に防ぐ
-      event.preventDefault();
-
-      try {
-        // 最後の打刻タイプを取得
-        const lastType = await this.freeeApiService.getLastTimeClockType();
-        log.info(`[PowerMonitor] Last time clock type: ${lastType}`);
-
-        // 退勤していない場合は自動退勤（統一的な退勤処理を使用）
-        if (lastType !== 'clock_out' && lastType !== null) {
-          log.info('[PowerMonitor] Executing auto clock-out on shutdown');
-          await this.executeClockOut();
-          log.info('[PowerMonitor] Auto clock-out completed successfully');
-        } else {
-          log.info('[PowerMonitor] Already clocked out, skipping auto clock-out');
-        }
-      } catch (error) {
-        console.error('[PowerMonitor] Failed to auto clock-out on shutdown:', error);
-      } finally {
-        // 処理完了後、アプリを終了
-        log.info('[PowerMonitor] Quitting application');
-        app.quit();
-      }
+      log.info('[PowerMonitor] Shutdown event detected (macOS/Linux)');
+      await this.handleShutdown(event);
     });
+  }
+
+  /**
+   * シャットダウン時の共通処理
+   * macOS/LinuxのshutdownイベントとWindowsのbefore-quitで使用
+   */
+  public async handleShutdown(event: any): Promise<void> {
+    // 通常の自動退勤設定をチェック（時間帯別は対象外）
+    const config = this.configManager.getConfig();
+    const autoClockOutEnabled = (config.app as any)?.autoTimeClock?.autoClockOutOnShutdown;
+
+    if (!autoClockOutEnabled) {
+      log.info('[PowerMonitor] Auto clock-out on shutdown is disabled');
+      return;
+    }
+
+    if (!this.freeeApiService) {
+      log.warn('[PowerMonitor] FreeeApiService not available');
+      return;
+    }
+
+    // シャットダウンを一時的に防ぐ
+    event.preventDefault();
+
+    try {
+      // 最後の打刻タイプを取得
+      const lastType = await this.freeeApiService.getLastTimeClockType();
+      log.info(`[PowerMonitor] Last time clock type: ${lastType}`);
+
+      // 退勤していない場合は自動退勤（統一的な退勤処理を使用）
+      if (lastType !== 'clock_out' && lastType !== null) {
+        log.info('[PowerMonitor] Executing auto clock-out on shutdown');
+        await this.executeClockOut();
+        log.info('[PowerMonitor] Auto clock-out completed successfully');
+      } else {
+        log.info('[PowerMonitor] Already clocked out, skipping auto clock-out');
+      }
+    } catch (error) {
+      log.error('[PowerMonitor] Failed to auto clock-out on shutdown:', error);
+    } finally {
+      // 処理完了後、アプリを終了
+      log.info('[PowerMonitor] Quitting application');
+      app.quit();
+    }
   }
 
   private setupIpcHandlers() {
