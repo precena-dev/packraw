@@ -33,7 +33,7 @@
 
 ### ダウンロード
 
-[ダウンロードページ](https://drive.google.com/drive/folders/1iSum8GMah5t5AZS-wMM0aTwhjhRrjDc2)から各OS用の最新版をダウンロードしてください。
+社内の配布フォルダから各OS用の最新版をダウンロードしてください。
 
 ## 初期設定
 
@@ -48,7 +48,7 @@
    cp config.precena.json ~/Library/Application\ Support/PackRaw/freee-app-config.json
    ```
    ※ アプリケーションを一度起動すると自動的にディレクトリが作成されます。が初回はconfigがないのでエラーになります。先に入れといたほうが良いかもです。
-   ※ プレセナ用の設定ファイル(config.precena.json)は[ダウンロードページ](https://drive.google.com/drive/folders/1iSum8GMah5t5AZS-wMM0aTwhjhRrjDc2)のmacOSフォルダにあります。
+   ※ 設定ファイル(config.precena.json)は社内配布フォルダのmacOSフォルダにあります。
 
 #### Windows
 1. ダウンロードした`PackRaw-x.x.x-win.zip`を任意のフォルダに解凍
@@ -226,4 +226,4 @@ Issue や Pull Request は歓迎です。（らしい）
 
 ## サポート
 
-問題が発生した場合は、[#times_kobaken](https://precena.slack.com/archives/CF7PFK3SN) から報告してください。
+問題が発生した場合は、社内のサポート窓口にお問い合わせください。
